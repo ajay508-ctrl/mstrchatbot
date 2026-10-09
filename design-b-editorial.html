@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MSTR Report Builder — CVS Health</title>
+<meta name="description" content="Internal tool for generating MicroStrategy reports from business requirements documents, mapping files, or raw SQL." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================================
+   0. TOKENS — light is the default canvas; dark is retuned, not inverted
+   ========================================================================== */
+:root{
+  color-scheme: light;
+
+  /* surfaces — warm near-white, never pure #FFF for the canvas */
+  --bg:            #FBFAF8;
+  --bg-sunk:       #F4F2ED;
+  --surface:       #FFFFFF;
+  --tint:          #F3F1EC;
+  --tint-2:        #EAE7E0;
+  --tint-hover:    #F0EEE8;
+
+  /* ink */
+  --ink:           #141210;
+  --ink-2:         #4A453E;
+  --ink-3:         #777066;
+  --ink-4:         #9A9289;
+
+  /* hairlines */
+  --line:          #E5E1D9;
+  --line-strong:   #D5D0C5;
+
+  /* the single accent */
+  --accent:        #CC0000;
+  --accent-press:  #A30000;
+  --accent-text:   #A80000;
+  --accent-tint:   #FAEEEC;
+  --accent-line:   #EFD3CF;
+  --on-accent:     #FFFFFF;
+
+  /* semantic — success only where success is genuinely meant */
+  --ok:            #0E6E45;
+  --ok-tint:       #E8F2EC;
+  --ok-line:       #C8E0D3;
+  --warn:          #7A5300;
+  --warn-tint:     #F7F0DE;
+
+  --focus:         #CC0000;
+
+  /* type */
+  --serif: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --t-1: 0.75rem;    /* 12 */
+  --t-2: 0.8125rem;  /* 13 */
+  --t-3: 0.875rem;   /* 14 */
+  --t-4: 0.9375rem;  /* 15 — base UI */
+  --t-5: 1.0625rem;  /* 17 */
+  --t-6: 1.3125rem;  /* 21 */
+  --t-7: 1.75rem;    /* 28 */
+  --t-8: 2.5rem;     /* 40 */
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 13px;
+
+  --ease: cubic-bezier(.22,.68,.3,1);
+  --fast: 120ms var(--ease);
+  --mid:  170ms var(--ease);
+  --slow: 200ms var(--ease);
+
+  --rail-l: 258px;
+  --rail-r: 398px;
+}
+
+[data-theme="dark"]{
+  color-scheme: dark;
+
+  --bg:            #111010;
+  --bg-sunk:       #0B0A0A;
+  --surface:       #191817;
+  --tint:          #1D1B1A;
+  --tint-2:        #262422;
+  --tint-hover:    #232120;
+
+  --ink:           #F3F0EA;
+  --ink-2:         #BEB7AC;
+  --ink-3:         #968E83;
+  --ink-4:         #746D64;
+
+  --line:          #2B2826;
+  --line-strong:   #3B3733;
+
+  --accent:        #D6231A;
+  --accent-press:  #B31610;
+  --accent-text:   #FF6058;
+  --accent-tint:   #2A1513;
+  --accent-line:   #45211E;
+  --on-accent:     #FFFFFF;
+
+  --ok:            #4BC08C;
+  --ok-tint:       #12231C;
+  --ok-line:       #1E3D30;
+  --warn:          #D9A94A;
+  --warn-tint:     #26200F;
+
+  --focus:         #FF6058;
+}
+
+/* ==========================================================================
+   1. RESET & BASE
+   ========================================================================== */
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:var(--t-4);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-feature-settings:"cv05" 1,"ss01" 1;
+  transition:background-color var(--slow), color var(--slow);
+}
+h1,h2,h3,h4,p,figure{ margin:0; }
+button,input,select,textarea{ font:inherit; color:inherit; }
+button{ background:none; border:0; padding:0; cursor:pointer; }
+a{ color:var(--accent-text); text-underline-offset:3px; text-decoration-thickness:1px; }
+svg{ display:block; }
+::selection{ background:var(--accent-tint); color:var(--ink); }
+
+:focus{ outline:none; }
+:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+  border-radius:var(--r-xs);
+}
+
+.mono{ font-family:var(--mono); font-variant-numeric:tabular-nums; letter-spacing:-0.01em; }
+.num{ font-variant-numeric:tabular-nums; }
+.sr{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
+/* micro-label: uppercase, tracked, quiet */
+.eyebrow{
+  font-family:var(--mono);
+  font-size:var(--t-1);
+  font-weight:500;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+}
+
+/* scrollbars, quietly */
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+*::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:99px; border:3px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover{ background:var(--ink-4); }
+
+/* ==========================================================================
+   2. APP SHELL — three columns: nav rail, measured content, transcript rail
+   ========================================================================== */
+.app{
+  display:grid;
+  grid-template-columns:var(--rail-l) minmax(0,1fr) var(--rail-r);
+  min-height:100vh;
+}
+
+/* --- left rail ----------------------------------------------------------- */
+.rail{
+  position:sticky; top:0;
+  height:100vh;
+  display:flex; flex-direction:column;
+  padding:30px 18px 20px;
+  border-right:1px solid var(--line);
+  background:var(--bg);
+}
+.brand{ display:flex; gap:11px; align-items:flex-start; padding:0 10px 26px; }
+.brand__mark{
+  width:26px; height:26px; flex:none; border-radius:7px;
+  background:var(--accent); color:var(--on-accent);
+  display:grid; place-items:center;
+  font-family:var(--serif); font-size:15px; font-weight:600; line-height:1;
+  letter-spacing:-.02em;
+  padding-bottom:1px;
+}
+.brand__name{ font-size:var(--t-3); font-weight:600; letter-spacing:-.012em; line-height:1.3; }
+.brand__org{ font-size:var(--t-1); color:var(--ink-3); letter-spacing:.01em; }
+
+.nav{ display:flex; flex-direction:column; gap:1px; }
+.nav__label{ padding:0 10px 8px; }
+.nav__item{
+  display:flex; align-items:center; gap:10px;
+  width:100%; padding:8px 10px;
+  border-radius:var(--r-sm);
+  font-size:var(--t-3); font-weight:450; letter-spacing:-.008em;
+  color:var(--ink-2); text-align:left;
+  transition:background-color var(--fast), color var(--fast);
+}
+.nav__item svg{ width:15px; height:15px; stroke-width:1.6; color:var(--ink-4); transition:color var(--fast); }
+.nav__item:hover{ background:var(--tint-hover); color:var(--ink); }
+.nav__item:hover svg{ color:var(--ink-3); }
+.nav__item:active{ background:var(--tint-2); }
+.nav__item[aria-current="page"]{ background:var(--tint); color:var(--ink); font-weight:500; }
+.nav__item[aria-current="page"] svg{ color:var(--accent); }
+.nav__idx{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+.rail__foot{ margin-top:auto; padding-top:20px; display:flex; flex-direction:column; gap:14px; }
+
+.conn{
+  display:flex; align-items:center; gap:8px;
+  padding:9px 10px; border-radius:var(--r-sm);
+  background:var(--tint); font-size:var(--t-2); color:var(--ink-2);
+  width:100%; text-align:left;
+  transition:background-color var(--fast);
+}
+.conn:hover{ background:var(--tint-2); }
+.dot{ width:6px; height:6px; border-radius:99px; background:var(--ink-4); flex:none; }
+.dot--ok{ background:var(--ok); }
+.dot--off{ background:var(--ink-4); }
+.conn__meta{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+/* theme switch — a hairline segmented control */
+.theme{ display:flex; gap:2px; padding:2px; border:1px solid var(--line); border-radius:8px; }
+.theme button{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:5px 8px; border-radius:6px;
+  font-size:var(--t-1); font-weight:500; color:var(--ink-3);
+  transition:background-color var(--fast), color var(--fast);
+}
+.theme button svg{ width:13px; height:13px; stroke-width:1.7; }
+.theme button:hover{ color:var(--ink); }
+.theme button[aria-pressed="true"]{ background:var(--tint-2); color:var(--ink); }
+
+/* --- centre column ------------------------------------------------------- */
+.main{ min-width:0; padding:0 0 120px; }
+.topbar{
+  display:none;
+  position:sticky; top:0; z-index:20;
+  align-items:center; gap:12px;
+  padding:10px 20px;
+  background:var(--bg);
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(1.2) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.measure{ max-width:764px; margin:0 auto; padding:0 40px; }
+
+.page{ display:none; }
+.page.is-active{ display:block; animation:rise 220ms var(--ease) both; }
+.mode-note{ margin:14px 0 0; max-width:58ch; font-size:var(--t-2); line-height:1.6; color:var(--ink-3); }
+@keyframes rise{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+
+.head{ padding:68px 0 34px; }
+.head__title{
+  font-family:var(--serif);
+  font-optical-sizing:auto;
+  font-size:var(--t-8);
+  font-weight:400;
+  line-height:1.08;
+  letter-spacing:-.024em;
+  margin:14px 0 0;
+}
+.head__lede{
+  margin-top:14px;
+  max-width:56ch;
+  font-size:var(--t-5);
+  line-height:1.62;
+  color:var(--ink-2);
+  letter-spacing:-.006em;
+}
+
+/* ==========================================================================
+   3. SECTIONS — separated by whitespace and tint, rarely by rule
+   ========================================================================== */
+.section{ padding:34px 0; border-top:1px solid var(--line); }
+.section:first-of-type{ border-top:0; padding-top:8px; }
+.section__head{ display:flex; align-items:baseline; gap:14px; margin-bottom:20px; }
+.section__title{ font-size:var(--t-5); font-weight:550; letter-spacing:-.014em; }
+.section__note{ font-size:var(--t-2); color:var(--ink-3); margin-left:auto; }
+.section__sub{ font-size:var(--t-3); color:var(--ink-3); margin-top:-12px; margin-bottom:20px; max-width:60ch; }
+
+.panel{
+  background:var(--tint);
+  border-radius:var(--r-lg);
+  padding:24px;
+}
+.panel--quiet{ background:transparent; border:1px solid var(--line); }
+
+/* ==========================================================================
+   4. CONTROLS
+   ========================================================================== */
+.field{ display:flex; flex-direction:column; gap:7px; margin-bottom:18px; }
+.field:last-child{ margin-bottom:0; }
+.label{ font-size:var(--t-2); font-weight:500; color:var(--ink-2); letter-spacing:-.004em; }
+.hint{ font-size:var(--t-1); color:var(--ink-3); line-height:1.5; }
+
+.input, .select, .textarea{
+  width:100%;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-sm);
+  padding:9px 11px;
+  font-size:var(--t-3);
+  color:var(--ink);
+  transition:border-color var(--fast), background-color var(--fast), box-shadow var(--fast);
+}
+[data-theme="dark"] .input,
+[data-theme="dark"] .select,
+[data-theme="dark"] .textarea{ background:var(--tint); }
+.input::placeholder, .textarea::placeholder{ color:var(--ink-3); opacity:1; }
+.input:hover, .select:hover, .textarea:hover{ border-color:var(--line-strong); }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-tint);
+}
+.input:disabled, .select:disabled, .textarea:disabled{
+  background:var(--tint); color:var(--ink-4); cursor:not-allowed; border-color:var(--line);
+}
+.select{
+  appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+  padding-right:32px;
+}
+.textarea{ font-family:var(--mono); font-size:var(--t-2); line-height:1.7; resize:vertical; min-height:180px; }
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+@media (max-width:640px){ .grid-2{ grid-template-columns:1fr; } }
+
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:9px 15px;
+  border-radius:var(--r-sm);
+  font-size:var(--t-3); font-weight:500; letter-spacing:-.006em;
+  border:1px solid transparent;
+  transition:background-color var(--fast), border-color var(--fast), color var(--fast), opacity var(--fast), transform var(--fast);
+  white-space:nowrap;
+}
+.btn svg{ width:14px; height:14px; stroke-width:1.8; }
+.btn:active{ transform:translateY(.5px); }
+.btn:disabled{ cursor:not-allowed; opacity:.42; transform:none; }
+
+.btn--primary{ background:var(--accent); color:var(--on-accent); }
+.btn--primary:hover:not(:disabled){ background:var(--accent-press); }
+.btn--primary:disabled{ background:var(--accent); }
+
+.btn--default{ background:var(--surface); border-color:var(--line-strong); color:var(--ink); }
+[data-theme="dark"] .btn--default{ background:var(--tint-2); border-color:var(--line-strong); }
+.btn--default:hover:not(:disabled){ border-color:var(--ink-4); }
+
+.btn--quiet{ color:var(--ink-2); padding:9px 11px; }
+.btn--quiet:hover:not(:disabled){ background:var(--tint-hover); color:var(--ink); }
+[data-theme="dark"] .btn--quiet:hover:not(:disabled){ background:var(--tint-2); }
+
+.btn--danger{ color:var(--accent-text); }
+.btn--danger:hover:not(:disabled){ background:var(--accent-tint); }
+
+.btn--sm{ padding:6px 10px; font-size:var(--t-2); }
+.btn-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:22px; }
+.btn-row--sep{ border-top:1px solid var(--line); padding-top:22px; }
+.spacer{ margin-left:auto; }
+
+/* text button used inline in section heads */
+.link-btn{
+  font-size:var(--t-2); color:var(--ink-3);
+  border-bottom:1px solid transparent;
+  transition:color var(--fast), border-color var(--fast);
+}
+.link-btn:hover{ color:var(--ink); border-color:var(--line-strong); }
+
+/* segmented control (mode switch) */
+.seg{
+  display:inline-flex; gap:3px; padding:3px;
+  background:var(--tint); border-radius:10px;
+}
+.seg__btn{
+  display:inline-flex; align-items:center; gap:7px;
+  padding:7px 14px; border-radius:7px;
+  font-size:var(--t-3); font-weight:450; color:var(--ink-3);
+  transition:background-color var(--fast), color var(--fast), box-shadow var(--fast);
+}
+.seg__btn svg{ width:14px; height:14px; stroke-width:1.7; }
+.seg__btn:hover{ color:var(--ink); }
+.seg__btn[aria-selected="true"]{
+  background:var(--surface); color:var(--ink); font-weight:500;
+  box-shadow:0 1px 1px rgba(20,18,16,.05);
+}
+[data-theme="dark"] .seg__btn[aria-selected="true"]{ background:var(--tint-2); box-shadow:none; }
+
+/* checkbox & radio */
+.cb{
+  appearance:none; flex:none;
+  width:16px; height:16px;
+  border:1px solid var(--line-strong);
+  border-radius:var(--r-xs);
+  background:var(--surface);
+  position:relative;
+  cursor:pointer;
+  transition:background-color var(--fast), border-color var(--fast);
+}
+[data-theme="dark"] .cb{ background:var(--bg-sunk); }
+.cb:hover{ border-color:var(--ink-4); }
+.cb:checked{ background:var(--accent); border-color:var(--accent); }
+.cb:checked::after{
+  content:""; position:absolute; left:4.5px; top:1.5px;
+  width:4px; height:8px;
+  border:solid #fff; border-width:0 1.6px 1.6px 0;
+  transform:rotate(43deg);
+}
+.cb:disabled{ opacity:.4; cursor:not-allowed; }
+
+/* ==========================================================================
+   5. FILE INTAKE
+   ========================================================================== */
+.drop{
+  display:block; width:100%;
+  border:1px dashed var(--line-strong);
+  border-radius:var(--r-lg);
+  background:var(--tint);
+  padding:30px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:background-color var(--fast), border-color var(--fast);
+}
+.drop:hover{ background:var(--tint-hover); border-color:var(--ink-4); }
+[data-theme="dark"] .drop:hover{ background:var(--tint-2); }
+.drop.is-over{ border-color:var(--accent); background:var(--accent-tint); }
+.drop__icon{ display:block; width:20px; height:20px; margin:0 auto 10px; color:var(--ink-3); stroke-width:1.5; }
+.drop__title{ font-size:var(--t-3); font-weight:500; }
+.drop__title em{ font-style:normal; color:var(--accent-text); text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
+.drop__meta{ font-size:var(--t-1); color:var(--ink-3); margin-top:5px; }
+
+.file{
+  display:flex; align-items:center; gap:12px;
+  padding:13px 14px;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  background:var(--surface);
+  animation:rise 200ms var(--ease) both;
+}
+[data-theme="dark"] .file{ background:var(--tint); }
+.file__ext{
+  width:34px; height:34px; flex:none; border-radius:var(--r-sm);
+  background:var(--accent-tint); color:var(--accent-text);
+  display:grid; place-items:center;
+  font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.02em;
+}
+.file__name{ font-size:var(--t-3); font-weight:500; letter-spacing:-.006em; word-break:break-all; line-height:1.35; }
+.file__meta{ font-size:var(--t-1); color:var(--ink-3); font-variant-numeric:tabular-nums; margin-top:2px; }
+.file__x{
+  margin-left:auto; flex:none;
+  width:28px; height:28px; border-radius:var(--r-sm);
+  display:grid; place-items:center; color:var(--ink-3);
+  transition:background-color var(--fast), color var(--fast);
+}
+.file__x svg{ width:15px; height:15px; stroke-width:1.8; }
+.file__x:hover{ background:var(--accent-tint); color:var(--accent-text); }
+
+/* source switch for BRD intake */
+.source-body{ margin-top:18px; }
+.pull-row{ display:flex; gap:10px; align-items:flex-end; }
+.pull-row .field{ flex:1; margin-bottom:0; }
+
+/* ==========================================================================
+   6. OPTION LISTS — settings UI, not floating chips
+   ========================================================================== */
+.opts{ border-top:1px solid var(--line); }
+.opt{ border-bottom:1px solid var(--line); }
+.opt__head{
+  display:flex; align-items:center; gap:11px;
+  padding:11px 10px 11px 8px;
+  margin:0 -10px 0 -8px;
+  border-radius:var(--r-sm);
+  cursor:pointer;
+  transition:background-color var(--fast);
+}
+.opt__head:hover{ background:var(--tint-hover); }
+[data-theme="dark"] .opt__head:hover{ background:var(--tint); }
+.opt__name{ font-size:var(--t-3); letter-spacing:-.006em; }
+.opt.is-on .opt__name{ font-weight:500; }
+.opt__sum{
+  margin-left:auto; text-align:right;
+  font-size:var(--t-1); color:var(--ink-3);
+  max-width:52%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.opt__chev{ width:13px; height:13px; flex:none; color:var(--ink-4); transition:transform var(--mid); }
+.opt.is-on .opt__chev{ transform:rotate(90deg); color:var(--ink-3); }
+
+.opt__wrap{ display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--slow); }
+.opt.is-on .opt__wrap{ grid-template-rows:1fr; }
+.opt__inner{ overflow:hidden; }
+.opt__grid{
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(174px,1fr));
+  gap:2px 14px;
+  padding:4px 0 14px 27px;
+}
+.sub{
+  display:flex; align-items:center; gap:9px;
+  padding:5px 7px; margin-left:-7px;
+  border-radius:var(--r-xs);
+  font-size:var(--t-2); color:var(--ink-2);
+  cursor:pointer;
+  transition:background-color var(--fast), color var(--fast);
+}
+.sub:hover{ background:var(--tint-hover); color:var(--ink); }
+[data-theme="dark"] .sub:hover{ background:var(--tint); }
+.sub .cb{ width:14px; height:14px; }
+.sub .cb:checked::after{ left:3.8px; top:1.2px; width:3.6px; height:7px; }
+.sub span{ line-height:1.35; }
+
+.counter{ font-family:var(--mono); font-size:var(--t-1); color:var(--ink-3); font-variant-numeric:tabular-nums; }
+
+/* ==========================================================================
+   7. SUMMARY / DEFINITION LISTS
+   ========================================================================== */
+.defs{ display:grid; grid-template-columns:130px minmax(0,1fr); gap:0; }
+.defs dt, .defs dd{
+  padding:9px 0;
+  border-top:1px solid var(--line);
+  font-size:var(--t-2);
+  margin:0;
+}
+.defs dt:first-of-type, .defs dt:first-of-type + dd{ border-top:0; }
+.defs dt{ color:var(--ink-3); }
+.defs dd{ color:var(--ink); }
+
+/* ==========================================================================
+   8. TABLE
+   ========================================================================== */
+.table-scroll{ overflow-x:auto; margin:0 -4px; padding:0 4px; }
+table.t{ width:100%; border-collapse:collapse; font-size:var(--t-2); }
+table.t th{
+  text-align:left; font-family:var(--mono); font-size:10px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3);
+  padding:0 14px 9px 0; border-bottom:1px solid var(--line-strong); white-space:nowrap;
+}
+table.t td{
+  padding:10px 14px 10px 0;
+  border-bottom:1px solid var(--line);
+  color:var(--ink-2);
+  vertical-align:middle;
+}
+table.t tr:last-child td{ border-bottom:0; }
+table.t tbody tr{ transition:background-color var(--fast); }
+table.t tbody tr:hover{ background:var(--tint-hover); }
+[data-theme="dark"] table.t tbody tr:hover{ background:var(--tint); }
+table.t td:first-child{ color:var(--ink); font-weight:450; }
+.conf{ display:flex; align-items:center; gap:9px; min-width:92px; }
+.conf__bar{ flex:1; height:2px; background:var(--tint-2); border-radius:2px; overflow:hidden; }
+.conf__fill{ height:100%; background:var(--accent); }
+.conf__val{ font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums; color:var(--ink-3); }
+
+.tag{
+  display:inline-block; padding:1px 7px; border-radius:99px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  background:var(--tint-2); color:var(--ink-2);
+}
+
+/* ==========================================================================
+   9. SQL EDITOR
+   ========================================================================== */
+.editor{ border:1px solid var(--line); border-radius:var(--r-md); overflow:hidden; background:var(--surface); }
+[data-theme="dark"] .editor{ background:var(--bg-sunk); }
+.editor:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-tint); }
+.editor__bar{
+  display:flex; align-items:center; gap:10px;
+  padding:7px 12px; border-bottom:1px solid var(--line);
+  background:var(--tint);
+  font-family:var(--mono); font-size:var(--t-1); color:var(--ink-3);
+}
+.editor .textarea{ border:0; border-radius:0; background:transparent; }
+.editor .textarea:focus-visible{ box-shadow:none; border-color:transparent; }
+.editor__foot{
+  display:flex; gap:16px; align-items:center;
+  padding:7px 12px; border-top:1px solid var(--line);
+  font-family:var(--mono); font-size:var(--t-1); color:var(--ink-3);
+}
+
+.note{
+  display:flex; gap:10px; align-items:flex-start;
+  padding:12px 14px; border-radius:var(--r-md);
+  font-size:var(--t-2); line-height:1.55;
+  background:var(--tint); color:var(--ink-2);
+  margin-top:16px;
+}
+.note svg{ width:15px; height:15px; flex:none; margin-top:2px; stroke-width:1.7; color:var(--ink-3); }
+.note--ok{ background:var(--ok-tint); color:var(--ok); }
+.note--ok svg{ color:var(--ok); }
+.note--bad{ background:var(--accent-tint); color:var(--accent-text); }
+.note--bad svg{ color:var(--accent-text); }
+.note strong{ font-weight:600; }
+
+/* ==========================================================================
+   10. TRANSCRIPT RAIL — a typeset record of what the assistant did
+   ========================================================================== */
+.stream{
+  position:sticky; top:0;
+  height:100vh;
+  display:flex; flex-direction:column;
+  border-left:1px solid var(--line);
+  background:var(--bg-sunk);
+}
+.stream__head{
+  display:flex; align-items:center; gap:9px;
+  padding:22px 24px 14px;
+}
+.stream__title{ font-size:var(--t-2); font-weight:600; letter-spacing:.02em; }
+.stream__acts{ margin-left:auto; display:flex; gap:2px; }
+.icon-btn{
+  width:26px; height:26px; border-radius:var(--r-sm);
+  display:grid; place-items:center; color:var(--ink-3);
+  transition:background-color var(--fast), color var(--fast), opacity var(--fast);
+}
+.icon-btn svg{ width:14px; height:14px; stroke-width:1.7; }
+.icon-btn:hover:not(:disabled){ background:var(--tint-2); color:var(--ink); }
+.icon-btn:disabled{ opacity:.35; cursor:not-allowed; }
+
+.stream__status{
+  display:flex; align-items:center; gap:8px;
+  padding:0 24px 14px;
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono); font-size:var(--t-1); color:var(--ink-3);
+  letter-spacing:.04em; text-transform:uppercase;
+}
+.pulse{ width:5px; height:5px; border-radius:99px; background:var(--ink-4); flex:none; }
+.stream.is-live .pulse{ background:var(--accent); animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+
+.stream__body{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding:0 24px 28px; scroll-behavior:smooth; }
+
+.empty{ padding:52px 0; text-align:center; color:var(--ink-3); }
+.empty svg, .empty i{ display:block; width:19px; height:19px; margin:0 auto 12px; stroke-width:1.4; color:var(--ink-4); }
+.empty p{ font-size:var(--t-2); line-height:1.65; max-width:34ch; margin:0 auto; text-wrap:pretty; }
+
+.ev{ padding:15px 0; border-top:1px solid var(--line); animation:evIn 260ms var(--ease) both; }
+.ev:first-child{ border-top:0; }
+@keyframes evIn{ from{ opacity:0; transform:translateY(5px); } to{ opacity:1; transform:none; } }
+.ev__meta{ display:flex; align-items:center; gap:9px; margin-bottom:5px; }
+.ev__time{ font-family:var(--mono); font-size:11px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.ev__kind{
+  font-family:var(--mono); font-size:10px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3);
+}
+.ev--accent .ev__kind{ color:var(--accent-text); }
+.ev--ok .ev__kind{ color:var(--ok); }
+.ev__text{ font-size:var(--t-2); line-height:1.62; color:var(--ink-2); letter-spacing:-.004em; }
+.ev__text b{ font-weight:500; color:var(--ink); }
+.ev__text code{ font-family:var(--mono); font-size:11.5px; color:var(--ink); }
+
+.dots{ display:flex; gap:4px; padding:16px 0; border-top:1px solid var(--line); }
+.dots i{ width:4px; height:4px; border-radius:99px; background:var(--ink-4); animation:blink 1.1s ease-in-out infinite; }
+.dots i:nth-child(2){ animation-delay:.16s; }
+.dots i:nth-child(3){ animation-delay:.32s; }
+@keyframes blink{ 0%,100%{ opacity:.22; } 45%{ opacity:.95; } }
+
+.ev-card{
+  margin-top:11px;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  background:var(--bg);
+  overflow:hidden;
+}
+.ev-card__head{
+  display:flex; align-items:center; gap:8px;
+  padding:10px 13px; border-bottom:1px solid var(--line);
+  font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3);
+}
+.ev-card__body{ padding:12px 13px; }
+.ev-card .defs{ grid-template-columns:92px minmax(0,1fr); }
+.ev-card .defs dt, .ev-card .defs dd{ padding:7px 0; font-size:var(--t-1); line-height:1.5; }
+.ev-card--approve{ border-color:var(--accent-line); }
+.ev-card--approve .ev-card__head{ background:var(--accent-tint); color:var(--accent-text); border-bottom-color:var(--accent-line); }
+.ev-card--ok{ border-color:var(--ok-line); }
+.ev-card--ok .ev-card__head{ background:var(--ok-tint); color:var(--ok); border-bottom-color:var(--ok-line); }
+.ev-card__acts{ display:flex; gap:8px; padding:0 13px 13px; }
+.ev-card__acts .btn{ flex:1; padding:7px 10px; font-size:var(--t-2); }
+.ev-card__stamp{
+  padding:9px 13px; border-top:1px solid var(--line);
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+}
+.metrics{ display:flex; gap:20px; flex-wrap:wrap; }
+.metric__v{ font-family:var(--serif); font-size:var(--t-6); line-height:1.1; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.metric__k{ font-size:10px; font-family:var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); margin-top:3px; }
+
+.scrim{
+  position:fixed; inset:0; z-index:40;
+  background:rgba(20,18,16,.34);
+  opacity:0; pointer-events:none;
+  transition:opacity var(--slow);
+}
+[data-theme="dark"] .scrim{ background:rgba(0,0,0,.58); }
+.scrim.is-on{ opacity:1; pointer-events:auto; }
+
+/* ==========================================================================
+   11. TOASTS
+   ========================================================================== */
+.toasts{ position:fixed; left:22px; bottom:22px; z-index:60; display:flex; flex-direction:column; gap:8px; }
+.toast{
+  display:flex; align-items:center; gap:9px;
+  padding:10px 14px; border-radius:var(--r-md);
+  background:var(--ink); color:var(--bg);
+  font-size:var(--t-2); letter-spacing:-.004em;
+  animation:toastIn 200ms var(--ease) both;
+  max-width:340px;
+}
+.toast svg{ width:14px; height:14px; flex:none; stroke-width:2; }
+.toast.is-out{ animation:toastOut 180ms var(--ease) both; }
+@keyframes toastIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+@keyframes toastOut{ to{ opacity:0; transform:translateY(4px); } }
+
+/* spinner */
+.spin{ width:13px; height:13px; border:1.5px solid currentColor; border-right-color:transparent; border-radius:99px; animation:spin .7s linear infinite; opacity:.85; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+/* ==========================================================================
+   12. RESPONSIVE
+   ========================================================================== */
+@media (max-width:1279px){
+  .app{ grid-template-columns:var(--rail-l) minmax(0,1fr); }
+  .topbar{ display:flex; }
+  .stream{
+    position:fixed; top:0; right:0; z-index:50;
+    width:min(408px,100%); border-left:1px solid var(--line);
+    transform:translateX(101%);
+    transition:transform var(--slow);
+    box-shadow:-1px 0 0 var(--line);
+  }
+  .stream.is-open{ transform:none; }
+  .head{ padding-top:40px; }
+}
+@media (max-width:899px){
+  .app{ grid-template-columns:minmax(0,1fr); }
+  .rail{
+    position:static; height:auto; flex-direction:row; align-items:center;
+    border-right:0; border-bottom:1px solid var(--line);
+    padding:12px 18px; gap:16px; overflow-x:auto;
+  }
+  .brand{ padding:0; }
+  .brand__org{ display:none; }
+  .nav{ flex-direction:row; gap:2px; }
+  .nav__label, .nav__idx, .conn__meta{ display:none; }
+  .nav__item{ white-space:nowrap; }
+  .rail__foot{ margin-top:0; padding-top:0; flex-direction:row; align-items:center; gap:8px; }
+  .conn{ width:auto; }
+  .measure{ padding:0 22px; }
+  .head{ padding-top:30px; }
+  .head__title{ font-size:var(--t-7); }
+}
+
+/* ==========================================================================
+   13. REDUCED MOTION
+   ========================================================================== */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+  .opt__wrap{ transition:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ====================================================================
+       LEFT RAIL
+       ==================================================================== -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand__mark" aria-hidden="true">M</div>
+      <div>
+        <div class="brand__name">MSTR Report Builder</div>
+        <div class="brand__org">CVS Health · Internal</div>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Primary">
+      <div class="nav__label eyebrow">Build</div>
+      <button class="nav__item" data-page="new" aria-current="page">
+        <i data-lucide="file-plus-2"></i><span>New Report</span><span class="nav__idx">01</span>
+      </button>
+      <button class="nav__item" data-page="mapping">
+        <i data-lucide="table-2"></i><span>Generate Mapping</span><span class="nav__idx">02</span>
+      </button>
+      <button class="nav__item" data-page="sql">
+        <i data-lucide="terminal"></i><span>Free SQL Report</span><span class="nav__idx">03</span>
+      </button>
+      <div class="nav__label eyebrow" style="padding-top:22px">Environment</div>
+      <button class="nav__item" data-page="conn">
+        <i data-lucide="plug"></i><span>MSTR Connection</span><span class="nav__idx">04</span>
+      </button>
+    </nav>
+
+    <div class="rail__foot">
+      <button class="conn" id="connChip" data-page="conn">
+        <span class="dot dot--off" id="connDot"></span>
+        <span id="connText">Not configured</span>
+        <span class="conn__meta" id="connMeta">—</span>
+      </button>
+      <div class="theme" role="group" aria-label="Colour theme">
+        <button data-theme-set="light" aria-pressed="true"><i data-lucide="sun"></i>Light</button>
+        <button data-theme-set="dark" aria-pressed="false"><i data-lucide="moon"></i>Dark</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====================================================================
+       MAIN COLUMN
+       ==================================================================== -->
+  <main class="main">
+    <div class="topbar">
+      <span class="eyebrow" id="crumb">New Report</span>
+      <button class="btn btn--default btn--sm spacer" id="streamToggle">
+        <i data-lucide="activity"></i> Activity
+      </button>
+    </div>
+
+    <!-- ---------------------------------------------------------------
+         PAGE 1 — NEW REPORT
+         --------------------------------------------------------------- -->
+    <section class="page is-active" id="page-new">
+      <div class="measure">
+        <header class="head">
+          <div class="eyebrow">01 — Build</div>
+          <h1 class="head__title">New report</h1>
+          <p class="head__lede">Start from a business requirements document and let the assistant infer the configuration, or bring a finished mapping file and set the parameters yourself.</p>
+        </header>
+
+        <div class="seg" role="tablist" aria-label="Report source">
+          <button class="seg__btn" role="tab" aria-selected="true" data-mode="brd"><i data-lucide="sparkles"></i>Upload BRD</button>
+          <button class="seg__btn" role="tab" aria-selected="false" data-mode="map"><i data-lucide="list-tree"></i>Mapping Document</button>
+        </div>
+        <p class="mode-note" id="modeNote"></p>
+
+        <!-- ======================= BRD MODE ======================= -->
+        <div id="mode-brd">
+          <section class="section">
+            <div class="section__head">
+              <h2 class="section__title">Requirements source</h2>
+              <span class="section__note">Step 1 of 2</span>
+            </div>
+
+            <div class="seg" role="tablist" aria-label="Requirements source" style="margin-bottom:4px">
+              <button class="seg__btn" role="tab" aria-selected="true" data-src="upload">Upload file</button>
+              <button class="seg__btn" role="tab" aria-selected="false" data-src="sharepoint">SharePoint</button>
+              <button class="seg__btn" role="tab" aria-selected="false" data-src="database">Database</button>
+            </div>
+
+            <div class="source-body">
+              <div data-srcpane="upload">
+                <div id="brdDropSlot"></div>
+                <p class="hint" style="margin-top:10px">Accepted: .xlsx · .xls · .csv · .pdf · .docx — up to 25&nbsp;MB.</p>
+              </div>
+
+              <div data-srcpane="sharepoint" hidden>
+                <div class="pull-row">
+                  <div class="field">
+                    <label class="label" for="spPath">Document library path</label>
+                    <input class="input" id="spPath" value="/sites/RxAnalytics/Shared Documents/BRD/" spellcheck="false">
+                  </div>
+                  <button class="btn btn--default" id="spPull"><i data-lucide="download"></i>Pull</button>
+                </div>
+                <p class="hint" style="margin-top:10px">Uses your SSO session. The most recently modified document in the folder is retrieved.</p>
+              </div>
+
+              <div data-srcpane="database" hidden>
+                <div class="grid-2">
+                  <div class="field">
+                    <label class="label" for="dbTable">Requirements table</label>
+                    <input class="input" id="dbTable" value="RX_ANALYTICS.BRD_REGISTRY" spellcheck="false">
+                  </div>
+                  <div class="field">
+                    <label class="label" for="dbId">Request ID</label>
+                    <input class="input" id="dbId" value="BRD-2026-0418" spellcheck="false">
+                  </div>
+                </div>
+                <button class="btn btn--default" id="dbPull"><i data-lucide="database"></i>Fetch requirements</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section__head">
+              <h2 class="section__title">Analysis</h2>
+              <span class="section__note">Step 2 of 2</span>
+            </div>
+            <p class="section__sub">The assistant reads the document, infers a report type, and proposes prompts, filters, a template and an output folder. Nothing is built until you approve the proposal in the activity panel.</p>
+
+            <div class="field">
+              <label class="label" for="brdName">Report name <span class="hint" style="font-weight:400">— optional, inferred if blank</span></label>
+              <input class="input" id="brdName" placeholder="e.g. Specialty Dispense Weekly" autocomplete="off">
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn--primary" id="brdAnalyze" disabled><i data-lucide="scan-line"></i>Analyse document</button>
+              <button class="btn btn--quiet" id="brdReset">Reset</button>
+            </div>
+          </section>
+
+          <!-- revision panel, revealed when the proposal is edited -->
+          <section class="section" id="brdEditSection" hidden>
+            <div class="section__head">
+              <h2 class="section__title">Revise the proposal</h2>
+              <span class="section__note">Awaiting your changes</span>
+            </div>
+            <p class="section__sub">Adjust anything the assistant got wrong. The activity panel is holding the build until you confirm.</p>
+            <div id="brdEditMount"></div>
+            <div class="btn-row btn-row--sep">
+              <button class="btn btn--primary" id="brdEditBuild"><i data-lucide="check"></i>Confirm revisions &amp; build</button>
+              <button class="btn btn--quiet" id="brdEditCancel">Discard revisions</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- =================== MAPPING DOCUMENT MODE =================== -->
+        <div id="mode-map" hidden>
+          <section class="section">
+            <div class="section__head">
+              <h2 class="section__title">Mapping document</h2>
+              <span class="section__note">Required</span>
+            </div>
+            <div id="mapDropSlot"></div>
+            <p class="hint" style="margin-top:10px">Accepted: .xlsx · .xls · .csv · .json — a mapping produced by this tool or by hand.</p>
+          </section>
+
+          <div id="mapMount"></div>
+
+          <section class="section">
+            <div class="btn-row" style="margin-top:0">
+              <button class="btn btn--primary" id="mapBuild" disabled><i data-lucide="play"></i>Build report</button>
+              <button class="btn btn--quiet" id="mapReset">Reset</button>
+              <span class="counter spacer" id="mapSummaryCount">0 prompts · 0 filters</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------
+         PAGE 2 — GENERATE MAPPING
+         --------------------------------------------------------------- -->
+    <section class="page" id="page-mapping">
+      <div class="measure">
+        <header class="head">
+          <div class="eyebrow">02 — Build</div>
+          <h1 class="head__title">Generate mapping</h1>
+          <p class="head__lede">Turn an Excel BRD into a reusable mapping document. This produces the mapping itself — not a report — so it can be reviewed, corrected and version-controlled before anything is built.</p>
+        </header>
+
+        <section class="section">
+          <div class="section__head">
+            <h2 class="section__title">Source workbook</h2>
+            <span class="section__note">.xlsx · .xls · .csv</span>
+          </div>
+          <div id="genDropSlot"></div>
+
+          <div class="grid-2" style="margin-top:22px">
+            <div class="field">
+              <label class="label" for="genSheet">Worksheet</label>
+              <select class="select" id="genSheet">
+                <option>Auto-detect</option><option>Requirements</option><option>Data Elements</option><option>Attributes</option><option>Sheet1</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="genType">Expected report type</label>
+              <select class="select" id="genType"><option>Auto-detect</option></select>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn--primary" id="genRun" disabled><i data-lucide="wand-sparkles"></i>Generate mapping</button>
+            <button class="btn btn--quiet" id="genReset">Reset</button>
+          </div>
+        </section>
+
+        <section class="section" id="genResult" hidden>
+          <div class="section__head">
+            <h2 class="section__title">Extracted objects</h2>
+            <span class="section__note" id="genCount">—</span>
+          </div>
+          <div class="table-scroll">
+            <table class="t">
+              <thead><tr><th>Object</th><th>Class</th><th>Source column</th><th>Type</th><th>Mapped to</th><th>Confidence</th></tr></thead>
+              <tbody id="genRows"></tbody>
+            </table>
+          </div>
+          <div class="btn-row btn-row--sep">
+            <button class="btn btn--default" id="genDownload"><i data-lucide="download"></i>Download mapping (.csv)</button>
+            <button class="btn btn--primary" id="genUse"><i data-lucide="arrow-right"></i>Use to build report</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------
+         PAGE 3 — FREE SQL
+         --------------------------------------------------------------- -->
+    <section class="page" id="page-sql">
+      <div class="measure">
+        <header class="head">
+          <div class="eyebrow">03 — Build</div>
+          <h1 class="head__title">Free SQL report</h1>
+          <p class="head__lede">For the cases the metadata layer does not cover. Paste a query, name it, choose where it lands, and a Freeform SQL report is created against the selected database instance.</p>
+        </header>
+
+        <section class="section">
+          <div class="section__head">
+            <h2 class="section__title">Query</h2>
+            <span class="section__note">Read-only statements</span>
+          </div>
+
+          <div class="editor">
+            <div class="editor__bar">
+              <span>freeform.sql</span>
+              <span class="spacer" id="sqlDialect">Snowflake dialect</span>
+            </div>
+            <textarea class="textarea" id="sqlText" spellcheck="false" aria-label="SQL query">SELECT
+    s.store_nbr,
+    s.store_name,
+    d.fill_date,
+    COUNT(DISTINCT d.rx_nbr)      AS scripts,
+    SUM(d.qty_dispensed)          AS units,
+    SUM(d.total_amt)              AS revenue
+FROM   rx.dispense_fact d
+JOIN   ref.store_dim   s ON s.store_key = d.store_key
+WHERE  d.fill_date BETWEEN ? AND ?
+GROUP  BY 1, 2, 3
+ORDER  BY revenue DESC;</textarea>
+            <div class="editor__foot">
+              <span id="sqlLines">0 lines</span>
+              <span id="sqlChars">0 characters</span>
+              <span class="spacer" id="sqlParams">0 parameters</span>
+            </div>
+          </div>
+
+          <div id="sqlNote"></div>
+
+          <div class="grid-2" style="margin-top:24px">
+            <div class="field">
+              <label class="label" for="sqlName">Report name</label>
+              <input class="input" id="sqlName" placeholder="e.g. Ad-hoc Dispense Extract" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="label" for="sqlDb">Database instance</label>
+              <select class="select" id="sqlDb">
+                <option>EDW_PROD</option><option>EDW_UAT</option><option>RX_MART</option><option>CORAM_DW</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="sqlFolder">Output folder</label>
+            <input class="input mono" id="sqlFolder" value="/Public Objects/Reports/Ad-Hoc" spellcheck="false">
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn--primary" id="sqlBuild"><i data-lucide="play"></i>Build SQL report</button>
+            <button class="btn btn--default" id="sqlValidate"><i data-lucide="spell-check"></i>Validate</button>
+            <button class="btn btn--quiet" id="sqlClear">Clear</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------
+         PAGE 4 — CONNECTION
+         --------------------------------------------------------------- -->
+    <section class="page" id="page-conn">
+      <div class="measure">
+        <header class="head">
+          <div class="eyebrow">04 — Environment</div>
+          <h1 class="head__title">MSTR connection</h1>
+          <p class="head__lede">Credentials for the MicroStrategy environment every build runs against. Stored locally in this browser — never sent anywhere but the Intelligence Server.</p>
+        </header>
+
+        <form id="connForm" autocomplete="off">
+          <section class="section">
+            <div class="section__head"><h2 class="section__title">Server</h2></div>
+            <div class="field">
+              <label class="label" for="cLibrary">Library URL</label>
+              <input class="input mono" id="cLibrary" placeholder="https://mstr.cvshealth.com/MicroStrategyLibrary" spellcheck="false">
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="label" for="cServer">Intelligence Server</label>
+                <input class="input mono" id="cServer" placeholder="mstr-isvr-prod-01" spellcheck="false">
+              </div>
+              <div class="field">
+                <label class="label" for="cPort">Port</label>
+                <input class="input mono num" id="cPort" value="34952" inputmode="numeric">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="cProject">Project name</label>
+              <input class="input" id="cProject" placeholder="Retail Pharmacy Analytics">
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section__head"><h2 class="section__title">Authentication</h2></div>
+            <div class="field">
+              <label class="label" for="cAuth">Auth mode</label>
+              <select class="select" id="cAuth">
+                <option>Standard</option><option>LDAP</option><option>SAML</option><option>OAuth</option><option>API Token</option>
+              </select>
+            </div>
+            <div class="grid-2" id="cCreds">
+              <div class="field">
+                <label class="label" for="cUser">Username</label>
+                <input class="input" id="cUser" placeholder="ajaym" autocomplete="username">
+              </div>
+              <div class="field">
+                <label class="label" for="cPass">Password</label>
+                <input class="input" id="cPass" type="password" placeholder="••••••••••" autocomplete="current-password">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="cToken">API token</label>
+              <input class="input mono" id="cToken" placeholder="mstr_pat_…" spellcheck="false">
+              <span class="hint" id="cTokenHint">Used when auth mode is API Token or OAuth.</span>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section__head"><h2 class="section__title">Defaults</h2></div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="label" for="cDb">Database instance</label>
+                <input class="input" id="cDb" placeholder="EDW_PROD">
+              </div>
+              <div class="field">
+                <label class="label" for="cDsn">DSN</label>
+                <input class="input mono" id="cDsn" placeholder="EDW_SNOWFLAKE_PROD" spellcheck="false">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="cFolder">Default report folder</label>
+              <input class="input mono" id="cFolder" value="/Public Objects/Reports" spellcheck="false">
+            </div>
+            <div class="field">
+              <label class="label" for="cTemplate">Default template</label>
+              <select class="select" id="cTemplate"></select>
+            </div>
+          </section>
+
+          <section class="section">
+            <div id="connNote"></div>
+            <div class="btn-row">
+              <button type="button" class="btn btn--primary" id="cTest"><i data-lucide="zap"></i>Test connection</button>
+              <button type="submit" class="btn btn--default" id="cSave"><i data-lucide="save"></i>Save configuration</button>
+              <button type="button" class="btn btn--danger spacer" id="cReset">Reset</button>
+            </div>
+          </section>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ====================================================================
+       ACTIVITY TRANSCRIPT
+       ==================================================================== -->
+  <aside class="stream" id="stream" aria-label="AI activity">
+    <div class="stream__head">
+      <span class="stream__title">Activity</span>
+      <div class="stream__acts">
+        <button class="icon-btn" id="streamCopy" title="Copy transcript" aria-label="Copy transcript"><i data-lucide="clipboard"></i></button>
+        <button class="icon-btn" id="streamClear" title="Clear transcript" aria-label="Clear transcript"><i data-lucide="eraser"></i></button>
+        <button class="icon-btn" id="streamClose" title="Close panel" aria-label="Close activity panel" hidden><i data-lucide="x"></i></button>
+      </div>
+    </div>
+    <div class="stream__status"><span class="pulse"></span><span id="streamState">Idle</span></div>
+    <div class="stream__body" id="streamBody" aria-live="polite">
+      <div class="empty">
+        <i data-lucide="rss"></i>
+        <p>Start a build and the assistant narrates each step here — parsing, classification, object mapping, and any approval it needs from you.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://unpkg.com/lucide@latest" defer></script>
+<script>
+/* ==========================================================================
+   A. DOMAIN DATA
+   ========================================================================== */
+const TYPES = {
+  Status:    { prompts:['Date Range Prompt','Store Prompt','Region Prompt','Status Type Prompt'],
+               filters:['Date Filter','Geography Filter','Status Filter','Active/Inactive Filter'],
+               template:'Standard Grid', folder:'/Public Objects/Reports/Status' },
+  Dispense:  { prompts:['Date Range Prompt','Store Prompt','Region Prompt','Product Prompt','NDC Prompt'],
+               filters:['Date Filter','Geography Filter','Drug Class Filter','Payer Filter','Channel Filter'],
+               template:'Standard Grid', folder:'/Public Objects/Reports/Pharmacy/Dispense' },
+  Demo:      { prompts:['Date Range Prompt','Region Prompt','Age Group Prompt'],
+               filters:['Date Filter','Geography Filter','Gender Filter','Age Band Filter','Ethnicity Filter'],
+               template:'Cross-tab', folder:'/Public Objects/Reports/Demographics' },
+  Combined:  { prompts:['Date Range Prompt','Store Prompt','Region Prompt','Product Prompt','Status Type Prompt'],
+               filters:['Date Filter','Geography Filter','Status Filter','Drug Class Filter','Payer Filter','Channel Filter'],
+               template:'Dashboard', folder:'/Public Objects/Reports/Combined' },
+  Coram:     { prompts:['Date Range Prompt','Branch Prompt','Therapy Prompt','Patient Prompt'],
+               filters:['Date Filter','Branch Filter','Therapy Type Filter','Referral Source Filter','Payer Filter'],
+               template:'Standard Grid', folder:'/Public Objects/Reports/Coram' },
+  Inventory: { prompts:['Date Range Prompt','Store Prompt','Warehouse Prompt','Product Prompt'],
+               filters:['Date Filter','Geography Filter','Stock Level Filter','Supplier Filter','Category Filter'],
+               template:'Standard Grid', folder:'/Public Objects/Reports/Inventory' },
+  Financial: { prompts:['Date Range Prompt','Region Prompt','Cost Center Prompt','GL Account Prompt'],
+               filters:['Date Filter','Geography Filter','Department Filter','Expense Type Filter','Revenue Filter'],
+               template:'Cross-tab', folder:'/Public Objects/Reports/Financial' },
+  Clinical:  { prompts:['Date Range Prompt','Store Prompt','Program Prompt','Patient Prompt'],
+               filters:['Date Filter','Geography Filter','Program Filter','Immunization Filter','MTM Filter','Outcome Filter'],
+               template:'Dashboard', folder:'/Public Objects/Reports/Clinical' },
+  Custom:    { prompts:['Date Range Prompt','Custom Prompt 1','Custom Prompt 2','Custom Prompt 3'],
+               filters:['Date Filter','Custom Filter 1','Custom Filter 2','Custom Filter 3'],
+               template:'Standard Grid', folder:'/Public Objects/Reports/Custom' }
+};
+
+const TYPE_DESC = {
+  Status:'Operational status of stores, scripts or work queues.',
+  Dispense:'Retail and specialty dispensing volume, units and revenue.',
+  Demo:'Patient population demographics and cohort breakdowns.',
+  Combined:'Dispensing joined to status across the full enterprise.',
+  Coram:'Home infusion branches, therapies and patient census.',
+  Inventory:'Stock positions, replenishment and supplier performance.',
+  Financial:'Cost centre, GL and revenue performance.',
+  Clinical:'Immunisation, MTM and clinical programme outcomes.',
+  Custom:'Analyst-defined objects with no standard template.'
+};
+
+const TEMPLATES = ['Standard Grid','Cross-tab','Dashboard','Executive Summary','Detail Listing'];
+
+const CUSTOM_PROMPT_OPTS = ['Attribute Element List','Value Prompt','Hierarchy Prompt','Object Prompt','Metric Qualification','Free Text'];
+const CUSTOM_FILTER_OPTS = ['Attribute Qualification','Metric Qualification','Set Qualification','Report as Filter','Shortcut to Filter','Advanced Expression'];
+
+const SUB = {
+  /* prompts */
+  'Date Range Prompt':['Yesterday Start/End','Last 7 Days','Last 14 Days','Last 30 Days','Weekly (Mon–Sun)','Bi-Weekly','Monthly Start/End','Quarterly Start/End','MTD','QTD','YTD','Rolling 30 Days','Rolling 60 Days','Rolling 90 Days','Custom Range'],
+  'Store Prompt':['Single Store','Multi-Store','Store Range','By District','By Region','All Stores'],
+  'Region Prompt':['Single Region','Multi-Region','By Division','By Market','By Area','All Regions'],
+  'Status Type Prompt':['Active','Inactive','Pending','On Hold','Closed','Transferred','All Statuses'],
+  'Product Prompt':['By NDC','By GPI','By Product Name','By Manufacturer','By Package Size','Top 100 Products','All Products'],
+  'NDC Prompt':['Single NDC','NDC List','By Labeler Code','By Product Code','By Package Code','Exclude Discontinued'],
+  'Age Group Prompt':['0–17','18–34','35–49','50–64','65–74','75+','Custom Age Band'],
+  'Branch Prompt':['Single Branch','Multi-Branch','By Service Area','By Region','Infusion Suites Only','All Branches'],
+  'Therapy Prompt':['Anti-Infective','Enteral Nutrition','Parenteral Nutrition','Immunoglobulin','Pain Management','Chemotherapy','Inotropic','All Therapies'],
+  'Patient Prompt':['Single Patient','Patient Cohort','New Patients','Active Census','Discharged','By Referral Source'],
+  'Warehouse Prompt':['Single DC','Multi-DC','Regional DC','Specialty DC','Third-Party 3PL','All Warehouses'],
+  'Cost Center Prompt':['Single Cost Center','Cost Center Roll-Up','By Department','By Function','By Owner','All Cost Centers'],
+  'GL Account Prompt':['Single Account','Account Range','By Account Class','Revenue Accounts','Expense Accounts','Balance Sheet Only'],
+  'Program Prompt':['Immunization','Medication Therapy Management','Adherence Outreach','Chronic Care','Point-of-Care Testing','Smoking Cessation','All Programs'],
+  'Custom Prompt 1':CUSTOM_PROMPT_OPTS,
+  'Custom Prompt 2':CUSTOM_PROMPT_OPTS,
+  'Custom Prompt 3':CUSTOM_PROMPT_OPTS,
+  /* filters */
+  'Date Filter':['Yesterday','Last 7 Days','Last 14 Days','Last 30 Days','Current Week','Current Month','Current Quarter','Previous Week','Previous Month','Previous Quarter','MTD','QTD','YTD','Rolling 30','Rolling 60','Rolling 90','Custom'],
+  'Geography Filter':['State','City','Zip Code','Region','District','Area','Market','Division'],
+  'Status Filter':['Active','Inactive','Pending','Suspended','Closed','Exclude Test Records'],
+  'Active/Inactive Filter':['Active Only','Inactive Only','Both','Active in Last 30 Days','Dormant 90+ Days'],
+  'Drug Class Filter':['By GPI Class','By Therapeutic Category','Brand Only','Generic Only','Specialty','Controlled Substance','OTC'],
+  'Payer Filter':['Commercial','Medicare','Medicaid','Cash / Self-Pay','Workers Comp','340B','All Payers'],
+  'Channel Filter':['Retail','Mail Order','Specialty','Long-Term Care','Infusion','Digital / App','All Channels'],
+  'Gender Filter':['Female','Male','Non-Binary','Unknown / Not Reported','All'],
+  'Age Band Filter':['Pediatric (0–17)','Adult (18–64)','Senior (65+)','5-Year Bands','10-Year Bands','Custom Band'],
+  'Ethnicity Filter':['Hispanic or Latino','Not Hispanic or Latino','Asian','Black or African American','White','Two or More Races','Unknown'],
+  'Branch Filter':['Single Branch','Branch Group','By Service Area','By State','Exclude Closed Branches'],
+  'Therapy Type Filter':['Acute','Chronic','Short-Term','Long-Term','Home Infusion','Ambulatory'],
+  'Referral Source Filter':['Hospital Discharge','Physician Office','Payer Referral','Internal Transfer','Self-Referral','Other'],
+  'Stock Level Filter':['In Stock','Low Stock','Out of Stock','Overstock','Below Reorder Point','Expiring < 90 Days'],
+  'Supplier Filter':['Primary Wholesaler','Secondary Wholesaler','Direct Manufacturer','Specialty Distributor','Internal Transfer','All Suppliers'],
+  'Category Filter':['Rx','OTC','Front Store','Consumables','Durable Medical Equipment','Seasonal'],
+  'Department Filter':['Pharmacy Operations','Retail Operations','Supply Chain','Clinical Services','Corporate','Technology'],
+  'Expense Type Filter':['Labor','Cost of Goods','Occupancy','Depreciation','Professional Fees','Other Operating'],
+  'Revenue Filter':['Front Store','Pharmacy','Specialty','Clinical Services','Other Revenue','Net of Returns'],
+  'Program Filter':['Immunization','MTM','Adherence','Chronic Care','Point-of-Care Testing','Screening'],
+  'Immunization Filter':['Influenza','COVID-19','Pneumococcal','Shingles','Tdap','Travel Vaccines','All Immunizations'],
+  'MTM Filter':['Comprehensive Medication Review','Targeted Intervention','Adherence Outreach','Completed','Declined','Eligible Not Reached'],
+  'Outcome Filter':['Improved','Stable','Declined','Gap Closed','Gap Open','Not Measured'],
+  'Custom Filter 1':CUSTOM_FILTER_OPTS,
+  'Custom Filter 2':CUSTOM_FILTER_OPTS,
+  'Custom Filter 3':CUSTOM_FILTER_OPTS
+};
+const subsFor = n => SUB[n] || ['Default','All Values','Custom'];
+
+/* ==========================================================================
+   B. UTILITIES
+   ========================================================================== */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? Math.min(ms, 90) : ms));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icons = () => { try { if (window.lucide) window.lucide.createIcons(); } catch(e){} };
+const clock = () => new Date().toLocaleTimeString('en-GB', { hour12:false });
+const bytes = n => n < 1024 ? n + ' B'
+  : n < 1048576 ? (n/1024).toFixed(1) + ' KB'
+  : (n/1048576).toFixed(2) + ' MB';
+const ext = name => (name.split('.').pop() || 'file').toUpperCase().slice(0,4);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+
+/* toasts ------------------------------------------------------------------ */
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<i data-lucide="${kind === 'bad' ? 'alert-circle' : kind === 'ok' ? 'check' : 'info'}"></i><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  icons();
+  setTimeout(() => { el.classList.add('is-out'); setTimeout(() => el.remove(), 220); }, 3200);
+}
+
+/* ==========================================================================
+   C. THEME
+   ========================================================================== */
+(function theme(){
+  const saved = store.get('mstr.theme', null);
+  const initial = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  apply(initial);
+  function apply(t){
+    document.documentElement.setAttribute('data-theme', t);
+    $$('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-theme-set]');
+    if (!b) return;
+    apply(b.dataset.themeSet);
+    store.set('mstr.theme', b.dataset.themeSet);
+  });
+})();
+
+/* ==========================================================================
+   D. NAVIGATION
+   ========================================================================== */
+const PAGE_TITLE = { new:'New Report', mapping:'Generate Mapping', sql:'Free SQL Report', conn:'MSTR Connection' };
+function go(page){
+  $$('.page').forEach(p => p.classList.toggle('is-active', p.id === 'page-' + page));
+  $$('.nav__item').forEach(n => {
+    if (n.dataset.page === page) n.setAttribute('aria-current','page'); else n.removeAttribute('aria-current');
+  });
+  $('#crumb').textContent = PAGE_TITLE[page] || '';
+  window.scrollTo({ top:0, behavior: REDUCED ? 'auto' : 'smooth' });
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-page]');
+  if (b) go(b.dataset.page);
+});
+
+/* activity drawer (below 1280px) ------------------------------------------ */
+const streamEl = $('#stream'), scrim = $('#scrim');
+function drawer(open){
+  streamEl.classList.toggle('is-open', open);
+  scrim.classList.toggle('is-on', open);
+  $('#streamClose').hidden = !open;
+  $('#streamToggle').setAttribute('aria-expanded', String(!!open));
+}
+const isNarrow = () => window.matchMedia('(max-width:1279px)').matches;
+$('#streamToggle').addEventListener('click', () => drawer(!streamEl.classList.contains('is-open')));
+$('#streamClose').addEventListener('click', () => drawer(false));
+scrim.addEventListener('click', () => drawer(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') drawer(false); });
+function revealStream(){ if (isNarrow()) drawer(true); }
+window.addEventListener('resize', () => { if (!isNarrow()) drawer(false); });
+
+/* ==========================================================================
+   E. ACTIVITY TRANSCRIPT
+   ========================================================================== */
+const EMPTY_HTML = $('#streamBody').innerHTML;
+const S = {
+  body: $('#streamBody'),
+  state: $('#streamState'),
+  log: [],
+  busy: false,
+
+  reset(){
+    this.body.innerHTML = EMPTY_HTML;
+    this.log = [];
+    icons();
+    this.setState('Idle', false);
+  },
+  clearEmpty(){ const e = this.body.querySelector('.empty'); if (e) e.remove(); },
+  setState(text, live){
+    this.state.textContent = text;
+    streamEl.classList.toggle('is-live', !!live);
+  },
+  toBottom(){ this.body.scrollTo({ top:this.body.scrollHeight, behavior: REDUCED ? 'auto' : 'smooth' }); },
+
+  /* typing indicator */
+  async think(ms = 620){
+    this.clearEmpty();
+    const d = document.createElement('div');
+    d.className = 'dots';
+    d.innerHTML = '<i></i><i></i><i></i>';
+    this.body.appendChild(d);
+    this.toBottom();
+    await sleep(ms);
+    d.remove();
+  },
+
+  /* one narrated step */
+  async step(kind, html, opts = {}){
+    await this.think(opts.think ?? (380 + Math.random() * 420));
+    const t = clock();
+    const ev = document.createElement('div');
+    ev.className = 'ev' + (opts.tone ? ' ev--' + opts.tone : '');
+    ev.innerHTML =
+      `<div class="ev__meta"><time class="ev__time">${t}</time><span class="ev__kind">${esc(kind)}</span></div>` +
+      `<p class="ev__text">${html}</p>`;
+    this.body.appendChild(ev);
+    this.log.push(`${t}  ${kind.toUpperCase()}  ${ev.querySelector('.ev__text').textContent}`);
+    this.toBottom();
+    await sleep(opts.after ?? 120);
+    return ev;
+  },
+
+  /* a card attached to the most recent step */
+  card(html, cls = ''){
+    const evs = this.body.querySelectorAll('.ev');
+    const last = evs[evs.length - 1];
+    const el = document.createElement('div');
+    el.className = 'ev-card ' + cls;
+    el.innerHTML = html;
+    (last || this.body).appendChild(el);
+    icons();
+    this.toBottom();
+    return el;
+  }
+};
+$('#streamClear').addEventListener('click', () => {
+  if (S.busy) { toast('A build is running — wait for it to finish.', 'bad'); return; }
+  S.reset(); toast('Transcript cleared.');
+});
+$('#streamCopy').addEventListener('click', async () => {
+  if (!S.log.length) { toast('Nothing to copy yet.'); return; }
+  const text = S.log.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Transcript copied to clipboard.', 'ok');
+  } catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Transcript copied to clipboard.', 'ok'); }
+    catch(err){ toast('Copy blocked by the browser.', 'bad'); }
+    ta.remove();
+  }
+});
+
+/* run guard — one build at a time, buttons disabled while live ------------- */
+const RUN_BTNS = ['#brdAnalyze','#mapBuild','#genRun','#sqlBuild','#brdEditBuild','#spPull','#dbPull'];
+function lock(on){
+  S.busy = on;
+  RUN_BTNS.forEach(sel => { const b = $(sel); if (b) b.disabled = on ? true : b.dataset.wasDisabled === '1'; });
+}
+async function run(label, fn){
+  if (S.busy) { toast('A build is already running.', 'bad'); return; }
+  RUN_BTNS.forEach(sel => { const b = $(sel); if (b) b.dataset.wasDisabled = b.disabled ? '1' : '0'; });
+  lock(true);
+  S.setState(label, true);
+  revealStream();
+  try { await fn(); }
+  catch(err){
+    await S.step('error', `The run stopped unexpectedly: <b>${esc(err && err.message || 'unknown error')}</b>`, { tone:'accent' });
+    toast('The run stopped unexpectedly.', 'bad');
+  }
+  finally { lock(false); S.setState('Idle', false); syncButtons(); }
+}
+
+/* ==========================================================================
+   F. FILE INTAKE COMPONENT
+   ========================================================================== */
+function fileSlot(mount, { accept, title, meta, onChange }){
+  const state = { file:null };
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = accept; input.className = 'sr';
+  input.setAttribute('aria-label', title);
+  mount.appendChild(input);
+
+  const zone = document.createElement('button');
+  zone.type = 'button';
+  zone.className = 'drop';
+  zone.innerHTML =
+    `<i data-lucide="upload-cloud" class="drop__icon"></i>` +
+    `<div class="drop__title">Drop a file here, or <em>browse</em></div>` +
+    `<div class="drop__meta">${esc(meta)}</div>`;
+  mount.appendChild(zone);
+
+  const holder = document.createElement('div');
+  mount.appendChild(holder);
+
+  function render(){
+    holder.innerHTML = '';
+    zone.hidden = !!state.file;
+    if (state.file){
+      const f = document.createElement('div');
+      f.className = 'file';
+      f.innerHTML =
+        `<div class="file__ext">${esc(ext(state.file.name))}</div>` +
+        `<div><div class="file__name">${esc(state.file.name)}</div>` +
+        `<div class="file__meta">${esc(bytes(state.file.size))} · attached ${clock()}${state.file.origin ? ' · ' + esc(state.file.origin) : ''}</div></div>` +
+        `<button type="button" class="file__x" aria-label="Remove file"><i data-lucide="x"></i></button>`;
+      f.querySelector('.file__x').addEventListener('click', () => set(null));
+      holder.appendChild(f);
+    }
+    icons();
+  }
+  function set(f){ state.file = f; render(); onChange && onChange(f); }
+
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    if (f) set({ name:f.name, size:f.size });
+    input.value = '';
+  });
+  ['dragenter','dragover'].forEach(t => zone.addEventListener(t, e => { e.preventDefault(); zone.classList.add('is-over'); }));
+  ['dragleave','drop'].forEach(t => zone.addEventListener(t, e => { e.preventDefault(); zone.classList.remove('is-over'); }));
+  zone.addEventListener('drop', e => {
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) set({ name:f.name, size:f.size });
+  });
+
+  render();
+  return { get file(){ return state.file; }, set, clear(){ set(null); } };
+}
+
+/* ==========================================================================
+   G. CONFIGURATION MODEL + SETTINGS-STYLE SELECTION UI
+   ========================================================================== */
+function newCfg(type){
+  const c = { name:'', type:'', prompts:new Set(), filters:new Set(), subs:{}, template:'', folder:'' };
+  if (type) setType(c, type);
+  return c;
+}
+function setType(cfg, type){
+  cfg.type = type;
+  cfg.prompts = new Set();
+  cfg.filters = new Set();
+  cfg.subs = {};
+  cfg.template = type && TYPES[type] ? TYPES[type].template : '';
+  cfg.folder   = type && TYPES[type] ? TYPES[type].folder   : '';
+}
+function autoSelect(cfg, counts = { p:3, f:3 }){
+  const t = TYPES[cfg.type]; if (!t) return;
+  t.prompts.slice(0, counts.p).forEach(n => { cfg.prompts.add(n); cfg.subs[n] = new Set([subsFor(n)[1] || subsFor(n)[0]]); });
+  t.filters.slice(0, counts.f).forEach(n => { cfg.filters.add(n); cfg.subs[n] = new Set([subsFor(n)[0]]); });
+}
+function cloneCfg(c){
+  const n = { name:c.name, type:c.type, template:c.template, folder:c.folder,
+              prompts:new Set(c.prompts), filters:new Set(c.filters), subs:{} };
+  Object.keys(c.subs).forEach(k => n.subs[k] = new Set(c.subs[k]));
+  return n;
+}
+
+/* Mounts the full configuration editor (name, type, prompts, filters, output).
+   Re-mounting swaps the root node so delegated listeners never stack up. */
+let cfgUid = 0;
+function mountCfg(root, cfg, opts = {}){
+  const onChange = opts.onChange || (() => {});
+  if (root.dataset.mounted === '1' && root.parentNode){
+    const fresh = root.cloneNode(false);
+    root.parentNode.replaceChild(fresh, root);
+    root = fresh;
+  }
+  root.dataset.mounted = '1';
+  root.innerHTML = `
+    <section class="section">
+      <div class="section__head"><h2 class="section__title">Report</h2></div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="label" data-for="name">Report name</label>
+          <input class="input" data-f="name" placeholder="e.g. Dispense Daily Detail" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="label" data-for="type">Report type</label>
+          <select class="select" data-f="type">
+            <option value="">Select a type…</option>
+            ${Object.keys(TYPES).map(t => `<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <p class="hint" data-role="typedesc" style="margin-top:-8px"></p>
+    </section>
+
+    <section class="section" data-role="selection" hidden>
+      <div class="section__head">
+        <h2 class="section__title">Prompts</h2>
+        <span class="counter" data-role="pcount">0 / 0</span>
+        <span class="section__note" style="margin-left:0">
+          <button type="button" class="link-btn" data-bulk="prompts:all">Select all</button>
+          <span style="color:var(--ink-4)"> · </span>
+          <button type="button" class="link-btn" data-bulk="prompts:none">Clear</button>
+        </span>
+      </div>
+      <div class="opts" data-list="prompts"></div>
+
+      <div class="section__head" style="margin-top:36px">
+        <h2 class="section__title">Filters</h2>
+        <span class="counter" data-role="fcount">0 / 0</span>
+        <span class="section__note" style="margin-left:0">
+          <button type="button" class="link-btn" data-bulk="filters:all">Select all</button>
+          <span style="color:var(--ink-4)"> · </span>
+          <button type="button" class="link-btn" data-bulk="filters:none">Clear</button>
+        </span>
+      </div>
+      <div class="opts" data-list="filters"></div>
+    </section>
+
+    <section class="section" data-role="output" hidden>
+      <div class="section__head"><h2 class="section__title">Output</h2></div>
+      <div class="grid-2">
+        <div class="field">
+          <label class="label" data-for="template">Template</label>
+          <select class="select" data-f="template">${TEMPLATES.map(t => `<option>${t}</option>`).join('')}</select>
+        </div>
+        <div class="field">
+          <label class="label" data-for="folder">Output folder</label>
+          <input class="input mono" data-f="folder" spellcheck="false">
+        </div>
+      </div>
+    </section>`;
+
+  /* associate labels with controls without duplicating ids across mounts */
+  $$('[data-f]', root).forEach(el => {
+    const id = 'cf' + (++cfgUid);
+    el.id = id;
+    const lab = root.querySelector(`[data-for="${el.dataset.f}"]`);
+    if (lab) lab.setAttribute('for', id);
+  });
+
+  const els = {
+    name: $('[data-f="name"]', root),
+    type: $('[data-f="type"]', root),
+    template: $('[data-f="template"]', root),
+    folder: $('[data-f="folder"]', root),
+    desc: $('[data-role="typedesc"]', root),
+    sel: $('[data-role="selection"]', root),
+    out: $('[data-role="output"]', root),
+    pList: $('[data-list="prompts"]', root),
+    fList: $('[data-list="filters"]', root),
+    pCount: $('[data-role="pcount"]', root),
+    fCount: $('[data-role="fcount"]', root)
+  };
+
+  function rowHTML(kind, name, on, chosen){
+    const subs = subsFor(name);
+    return `
+      <div class="opt${on ? ' is-on' : ''}" data-kind="${kind}" data-name="${esc(name)}">
+        <label class="opt__head">
+          <input type="checkbox" class="cb" data-role="parent" ${on ? 'checked' : ''}>
+          <i data-lucide="chevron-right" class="opt__chev"></i>
+          <span class="opt__name">${esc(name)}</span>
+          <span class="opt__sum" data-role="sum">${on ? esc([...chosen].join(', ')) : ''}</span>
+        </label>
+        <div class="opt__wrap"><div class="opt__inner"><div class="opt__grid">
+          ${subs.map(s => `
+            <label class="sub">
+              <input type="checkbox" class="cb" data-role="sub" data-sub="${esc(s)}" ${chosen.has(s) ? 'checked' : ''}>
+              <span>${esc(s)}</span>
+            </label>`).join('')}
+        </div></div></div>
+      </div>`;
+  }
+
+  function paint(){
+    const t = TYPES[cfg.type];
+    els.name.value = cfg.name || '';
+    els.type.value = cfg.type || '';
+    els.desc.textContent = t ? TYPE_DESC[cfg.type] : 'Choose a report type to load its prompts, filters and defaults.';
+    els.sel.hidden = !t; els.out.hidden = !t;
+    if (!t){ els.pList.innerHTML = ''; els.fList.innerHTML = ''; return; }
+
+    els.template.value = cfg.template || t.template;
+    els.folder.value = cfg.folder || t.folder;
+    els.pList.innerHTML = t.prompts.map(n => rowHTML('prompts', n, cfg.prompts.has(n), cfg.subs[n] || new Set())).join('');
+    els.fList.innerHTML = t.filters.map(n => rowHTML('filters', n, cfg.filters.has(n), cfg.subs[n] || new Set())).join('');
+    els.pCount.textContent = `${cfg.prompts.size} / ${t.prompts.length}`;
+    els.fCount.textContent = `${cfg.filters.size} / ${t.filters.length}`;
+    icons();
+  }
+
+  function refreshCounts(){
+    const t = TYPES[cfg.type]; if (!t) return;
+    els.pCount.textContent = `${cfg.prompts.size} / ${t.prompts.length}`;
+    els.fCount.textContent = `${cfg.filters.size} / ${t.filters.length}`;
+  }
+
+  root.addEventListener('change', e => {
+    const el = e.target;
+    if (el.dataset.f === 'type'){ setType(cfg, el.value); paint(); onChange(cfg); return; }
+    if (el.dataset.f){ cfg[el.dataset.f] = el.value; onChange(cfg); return; }
+
+    const row = el.closest('.opt'); if (!row) return;
+
+    const kind = row.dataset.kind, name = row.dataset.name;
+    if (!cfg.subs[name]) cfg.subs[name] = new Set();
+
+    if (el.dataset.role === 'parent'){
+      if (el.checked){
+        cfg[kind].add(name);
+        if (!cfg.subs[name].size){
+          const first = subsFor(name)[0];
+          cfg.subs[name].add(first);
+          const box = $$('[data-role="sub"]', row).find(b => b.dataset.sub === first);
+          if (box) box.checked = true;
+        }
+      } else {
+        cfg[kind].delete(name);
+      }
+      row.classList.toggle('is-on', el.checked);
+    }
+
+    if (el.dataset.role === 'sub'){
+      const v = el.dataset.sub;
+      if (el.checked){
+        cfg.subs[name].add(v);
+        if (!cfg[kind].has(name)){
+          cfg[kind].add(name);
+          row.classList.add('is-on');
+          const p = row.querySelector('[data-role="parent"]'); if (p) p.checked = true;
+        }
+      } else {
+        cfg.subs[name].delete(v);
+        /* unchecking the last sub-option releases the parent — no orphan selections */
+        if (!cfg.subs[name].size){
+          cfg[kind].delete(name);
+          row.classList.remove('is-on');
+          const p = row.querySelector('[data-role="parent"]'); if (p) p.checked = false;
+        }
+      }
+    }
+
+    const sum = row.querySelector('[data-role="sum"]');
+    if (sum) sum.textContent = cfg[kind].has(name) ? [...cfg.subs[name]].join(', ') : '';
+    refreshCounts();
+    onChange(cfg);
+  });
+
+  /* text fields commit as they are typed, not only on blur */
+  root.addEventListener('input', e => {
+    const f = e.target.dataset.f;
+    if (f === 'name' || f === 'folder'){ cfg[f] = e.target.value; onChange(cfg); }
+  });
+
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-bulk]'); if (!b) return;
+    const [kind, mode] = b.dataset.bulk.split(':');
+    const t = TYPES[cfg.type]; if (!t) return;
+    if (mode === 'all'){
+      t[kind].forEach(n => { cfg[kind].add(n); if (!cfg.subs[n] || !cfg.subs[n].size) cfg.subs[n] = new Set([subsFor(n)[0]]); });
+    } else {
+      t[kind].forEach(n => { cfg[kind].delete(n); cfg.subs[n] = new Set(); });
+    }
+    paint(); onChange(cfg);
+  });
+
+  paint();
+  return { paint, get cfg(){ return cfg; } };
+}
+
+/* summary helpers --------------------------------------------------------- */
+const listSubs = (cfg, names) => [...names].map(n => {
+  const s = cfg.subs[n] ? [...cfg.subs[n]] : [];
+  return s.length ? `${n} <span style="color:var(--ink-3)">(${esc(s.join(', '))})</span>` : esc(n);
+});
+function cfgDefs(cfg){
+  return `<dl class="defs">
+    <dt>Name</dt><dd>${esc(cfg.name || 'Untitled report')}</dd>
+    <dt>Type</dt><dd>${esc(cfg.type || '—')}</dd>
+    <dt>Prompts</dt><dd>${cfg.prompts.size ? listSubs(cfg, cfg.prompts).join('<br>') : '<span style="color:var(--ink-3)">none</span>'}</dd>
+    <dt>Filters</dt><dd>${cfg.filters.size ? listSubs(cfg, cfg.filters).join('<br>') : '<span style="color:var(--ink-3)">none</span>'}</dd>
+    <dt>Template</dt><dd>${esc(cfg.template || '—')}</dd>
+    <dt>Folder</dt><dd class="mono" style="font-size:10.5px">${esc(cfg.folder || '—')}</dd>
+  </dl>`;
+}
+
+/* ==========================================================================
+   H. SHARED BUILD SEQUENCE
+   ========================================================================== */
+async function buildReport(cfg, origin){
+  const name = cfg.name || `${cfg.type} Report`;
+  await S.step('validate', `Validating <b>${esc(name)}</b> against the <b>${esc(cfg.type)}</b> schema — ${cfg.prompts.size} prompt${cfg.prompts.size === 1 ? '' : 's'}, ${cfg.filters.size} filter${cfg.filters.size === 1 ? '' : 's'}.`);
+  await S.step('connect', `Authenticated to <code>${esc(CONN.server || 'mstr-isvr-prod-01')}</code> · project <b>${esc(CONN.project || 'Retail Pharmacy Analytics')}</b>.`);
+  if (cfg.prompts.size) await S.step('prompts', `Binding prompt objects: ${listSubs(cfg, cfg.prompts).join(' · ')}.`);
+  if (cfg.filters.size) await S.step('filters', `Applying filter qualifications: ${listSubs(cfg, cfg.filters).join(' · ')}.`);
+  await S.step('template', `Laying out the <b>${esc(cfg.template)}</b> template and resolving metric formats.`);
+  await S.step('build', `Creating the report definition in <code>${esc(cfg.folder)}</code>.`, { think:900 });
+
+  const id = 'RPT-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  await S.step('complete', `<b>${esc(name)}</b> was created successfully.`, { tone:'ok' });
+  S.card(`
+    <div class="ev-card__head"><i data-lucide="check-circle-2" style="width:13px;height:13px"></i> Report created</div>
+    <div class="ev-card__body">
+      <div class="metrics" style="margin-bottom:14px">
+        <div><div class="metric__v">${cfg.prompts.size}</div><div class="metric__k">Prompts</div></div>
+        <div><div class="metric__v">${cfg.filters.size}</div><div class="metric__k">Filters</div></div>
+        <div><div class="metric__v">${(2.1 + Math.random() * 3).toFixed(1)}s</div><div class="metric__k">Build time</div></div>
+      </div>
+      <dl class="defs">
+        <dt>Report ID</dt><dd class="mono" style="font-size:10.5px">${id}</dd>
+        <dt>Origin</dt><dd>${esc(origin)}</dd>
+        <dt>Location</dt><dd class="mono" style="font-size:10.5px">${esc(cfg.folder)}</dd>
+      </dl>
+    </div>
+    <div class="ev-card__acts">
+      <button class="btn btn--default" data-act="open"><i data-lucide="external-link"></i>Open in Library</button>
+    </div>`, 'ev-card--ok').addEventListener('click', e => {
+      if (e.target.closest('[data-act="open"]'))
+        toast(CONN.library ? 'Opening ' + id + ' in MicroStrategy Library…' : 'Set a Library URL on the connection page first.', CONN.library ? 'ok' : 'bad');
+    });
+  toast(`${name} created.`, 'ok');
+}
+
+/* ==========================================================================
+   I. PAGE 1 — NEW REPORT
+   ========================================================================== */
+/* mode switch */
+const MODE_NOTE = {
+  brd:'The assistant infers everything, then stops for your approval in the activity panel. Nothing is created until you say so.',
+  map:'You set every parameter yourself against a finished mapping file. There is no approval step — it builds on the spot.'
+};
+function setMode(mode){
+  $$('[data-mode]').forEach(x => x.setAttribute('aria-selected', String(x.dataset.mode === mode)));
+  $('#mode-brd').hidden = mode !== 'brd';
+  $('#mode-map').hidden = mode !== 'map';
+  $('#modeNote').textContent = MODE_NOTE[mode];
+}
+$$('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+setMode('brd');
+
+/* --- BRD sub-flow -------------------------------------------------------- */
+const brdFile = fileSlot($('#brdDropSlot'), {
+  accept:'.xlsx,.xls,.csv,.pdf,.docx',
+  title:'Upload a business requirements document',
+  meta:'XLSX · CSV · PDF · DOCX',
+  onChange: syncButtons
+});
+
+$$('[data-src]').forEach(b => b.addEventListener('click', () => {
+  $$('[data-src]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+  $$('[data-srcpane]').forEach(p => p.hidden = p.dataset.srcpane !== b.dataset.src);
+}));
+
+$('#spPull').addEventListener('click', () => run('Retrieving from SharePoint', async () => {
+  const path = $('#spPath').value.trim() || '/sites/';
+  await S.step('sharepoint', `Requesting the most recent document in <code>${esc(path)}</code>.`);
+  await S.step('sharepoint', `Retrieved <b>BRD_Specialty_Dispense_v4.xlsx</b> — modified 2 days ago by <b>r.okafor</b>.`, { tone:'accent' });
+  brdFile.set({ name:'BRD_Specialty_Dispense_v4.xlsx', size:348160, origin:'SharePoint' });
+  toast('Document retrieved from SharePoint.', 'ok');
+}));
+
+$('#dbPull').addEventListener('click', () => run('Fetching requirements', async () => {
+  const id = $('#dbId').value.trim() || 'BRD-XXXX';
+  await S.step('database', `Querying <code>${esc($('#dbTable').value.trim())}</code> for request <b>${esc(id)}</b>.`);
+  await S.step('database', `Row found. Serialised 42 requirement lines into a working document.`, { tone:'accent' });
+  brdFile.set({ name:`${id}_requirements.csv`, size:71424, origin:'Database' });
+  toast('Requirements fetched.', 'ok');
+}));
+
+function inferType(filename){
+  const f = (filename || '').toLowerCase();
+  const hits = [
+    ['dispense', 'Dispense'], ['pharmacy', 'Dispense'], ['rx', 'Dispense'],
+    ['coram', 'Coram'], ['infusion', 'Coram'],
+    ['demo', 'Demo'], ['patient', 'Demo'],
+    ['invent', 'Inventory'], ['stock', 'Inventory'],
+    ['financ', 'Financial'], ['gl', 'Financial'], ['cost', 'Financial'],
+    ['clinic', 'Clinical'], ['immun', 'Clinical'], ['mtm', 'Clinical'],
+    ['status', 'Status'], ['combin', 'Combined']
+  ];
+  for (const [k, v] of hits) if (f.includes(k)) return v;
+  return 'Dispense';
+}
+
+let brdEditor = null;
+const brdEditSection = $('#brdEditSection');
+
+$('#brdAnalyze').addEventListener('click', () => run('Analysing document', async () => {
+  brdEditSection.hidden = true;
+  const f = brdFile.file;
+  const detected = newCfg(inferType(f.name));
+  detected.name = $('#brdName').value.trim() || `${detected.type} — ${f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')}`;
+  autoSelect(detected, { p:3, f:3 });
+
+  await S.step('reading', `Opening <b>${esc(f.name)}</b> (${esc(bytes(f.size))}) and normalising its structure.`);
+  await S.step('parsing', `Found 3 worksheets and 42 requirement lines. Ignoring 6 blank and 2 commentary rows.`);
+  await S.step('reasoning', `Vocabulary is dominated by dispensing and payer terminology. Classifying as <b>${esc(detected.type)}</b> with high confidence.`, { tone:'accent' });
+  S.card(`
+    <div class="ev-card__head"><i data-lucide="scan-line" style="width:13px;height:13px"></i> Classification</div>
+    <div class="ev-card__body">
+      <div class="metrics">
+        <div><div class="metric__v">${esc(detected.type)}</div><div class="metric__k">Report type</div></div>
+        <div><div class="metric__v">${(88 + Math.floor(Math.random() * 9))}%</div><div class="metric__k">Confidence</div></div>
+        <div><div class="metric__v">42</div><div class="metric__k">Lines read</div></div>
+      </div>
+    </div>`);
+  await S.step('mapping', `Matched ${detected.prompts.size} prompt objects and ${detected.filters.size} filter qualifications to the ${esc(detected.type)} schema.`);
+  await S.step('defaults', `Template <b>${esc(detected.template)}</b>; output folder <code>${esc(detected.folder)}</code>.`);
+  await S.step('review', `Proposal ready. <b>Nothing has been created yet</b> — approve, revise or reject below.`, { tone:'accent' });
+
+  const decision = await approval(detected);
+
+  if (decision === 'approve'){
+    await S.step('approved', `Approved by <b>you</b> at ${clock()}. Proceeding to build.`, { tone:'ok' });
+    await buildReport(detected, 'BRD · ' + f.name);
+  } else if (decision === 'reject'){
+    await S.step('rejected', `Proposal rejected. No objects were created; the document stays attached so you can adjust and re-run.`, { tone:'accent' });
+    toast('Proposal rejected — nothing was built.');
+  } else {
+    await S.step('revising', `Handing the proposal to you for revision. The build is paused until you confirm.`, { tone:'accent' });
+    const draft = cloneCfg(detected);
+    brdEditSection.hidden = false;
+    brdEditor = mountCfg($('#brdEditMount'), draft);
+    brdEditSection.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block:'start' });
+    drawer(false);
+  }
+}));
+
+function approval(cfg){
+  return new Promise(resolve => {
+    const card = S.card(`
+      <div class="ev-card__head"><i data-lucide="gavel" style="width:13px;height:13px"></i> Approval required</div>
+      <div class="ev-card__body">${cfgDefs(cfg)}</div>
+      <div class="ev-card__acts">
+        <button class="btn btn--primary" data-decide="approve">Approve</button>
+        <button class="btn btn--default" data-decide="edit">Edit</button>
+        <button class="btn btn--quiet" data-decide="reject">Reject</button>
+      </div>`, 'ev-card--approve');
+    card.addEventListener('click', e => {
+      const b = e.target.closest('[data-decide]'); if (!b) return;
+      $$('button', card).forEach(x => x.disabled = true);
+      const stamp = document.createElement('div');
+      stamp.className = 'ev-card__stamp';
+      stamp.textContent = `${b.dataset.decide === 'approve' ? 'Approved' : b.dataset.decide === 'reject' ? 'Rejected' : 'Sent for revision'} · ${clock()}`;
+      card.appendChild(stamp);
+      resolve(b.dataset.decide);
+    });
+  });
+}
+
+$('#brdEditBuild').addEventListener('click', () => {
+  if (!brdEditor) return;
+  const cfg = brdEditor.cfg;
+  if (!cfg.type){ toast('Choose a report type first.', 'bad'); return; }
+  if (!cfg.prompts.size && !cfg.filters.size){ toast('Select at least one prompt or filter.', 'bad'); return; }
+  run('Building revised report', async () => {
+    brdEditSection.hidden = true;
+    await S.step('revised', `Revisions confirmed: ${cfg.prompts.size} prompts, ${cfg.filters.size} filters, template <b>${esc(cfg.template)}</b>.`, { tone:'ok' });
+    await buildReport(cfg, 'BRD · revised by analyst');
+  });
+});
+$('#brdEditCancel').addEventListener('click', () => {
+  brdEditSection.hidden = true;
+  brdEditor = null;
+  toast('Revisions discarded.');
+});
+
+$('#brdReset').addEventListener('click', () => {
+  brdFile.clear(); $('#brdName').value = '';
+  brdEditSection.hidden = true; brdEditor = null;
+  syncButtons(); toast('BRD form reset.');
+});
+
+/* --- Mapping-document sub-flow ------------------------------------------- */
+const mapCfg = newCfg(null);
+const mapFile = fileSlot($('#mapDropSlot'), {
+  accept:'.xlsx,.xls,.csv,.json',
+  title:'Upload a mapping document',
+  meta:'XLSX · CSV · JSON',
+  onChange: syncButtons
+});
+const mapEditor = mountCfg($('#mapMount'), mapCfg, { onChange: syncButtons });
+
+$('#mapBuild').addEventListener('click', () => {
+  if (!mapCfg.type){ toast('Choose a report type first.', 'bad'); return; }
+  if (!mapCfg.prompts.size && !mapCfg.filters.size){ toast('Select at least one prompt or filter.', 'bad'); return; }
+  run('Building report', async () => {
+    await S.step('mapping', `Reading <b>${esc(mapFile.file.name)}</b> (${esc(bytes(mapFile.file.size))}). No approval needed — the mapping is treated as final.`);
+    await buildReport(mapCfg, 'Mapping · ' + mapFile.file.name);
+  });
+});
+$('#mapReset').addEventListener('click', () => {
+  mapFile.clear();
+  setType(mapCfg, ''); mapCfg.name = '';
+  mapEditor.paint(); syncButtons(); toast('Mapping form reset.');
+});
+
+/* enable/disable the primary actions ------------------------------------- */
+function syncButtons(){
+  if (S.busy) return;
+  $('#brdAnalyze').disabled = !brdFile.file;
+  $('#mapBuild').disabled = !(mapFile.file && mapCfg.type && (mapCfg.prompts.size || mapCfg.filters.size));
+  $('#genRun').disabled = !genFile.file;
+  $('#mapSummaryCount').textContent = `${mapCfg.prompts.size} prompt${mapCfg.prompts.size === 1 ? '' : 's'} · ${mapCfg.filters.size} filter${mapCfg.filters.size === 1 ? '' : 's'}`;
+}
+
+/* ==========================================================================
+   J. PAGE 2 — GENERATE MAPPING
+   ========================================================================== */
+const genFile = fileSlot($('#genDropSlot'), {
+  accept:'.xlsx,.xls,.csv',
+  title:'Upload an Excel BRD',
+  meta:'XLSX · XLS · CSV — up to 25 MB',
+  onChange: syncButtons
+});
+$('#genType').innerHTML = '<option>Auto-detect</option>' + Object.keys(TYPES).map(t => `<option>${t}</option>`).join('');
+
+let genRowsData = [];
+function makeMapping(type){
+  const t = TYPES[type] || TYPES.Dispense;
+  const base = [
+    ['Store Number','Attribute','STORE_NBR','Integer','Store@ID'],
+    ['Store Name','Attribute','STORE_NAME','Varchar(60)','Store@DESC'],
+    ['Fill Date','Attribute','FILL_DATE','Date','Day@ID'],
+    ['Region','Attribute','REGION_CD','Char(4)','Region@ID'],
+    ['Script Count','Metric','RX_NBR','Integer','Count(Rx Number)'],
+    ['Units Dispensed','Metric','QTY_DISPENSED','Decimal(12,3)','Sum(Quantity)'],
+    ['Revenue','Metric','TOTAL_AMT','Decimal(14,2)','Sum(Total Amount)'],
+    ['Payer Type','Attribute','PAYER_TYPE_CD','Char(2)','Payer@ID']
+  ];
+  const rows = base.map(r => ({ obj:r[0], cls:r[1], col:r[2], dtype:r[3], mapped:r[4], conf:78 + Math.floor(Math.random() * 21) }));
+  t.prompts.forEach(p => rows.push({ obj:p, cls:'Prompt', col:'—', dtype:'Prompt', mapped:p.replace(/ Prompt$/, '') + ' @ Element List', conf:74 + Math.floor(Math.random() * 25) }));
+  t.filters.forEach(f => rows.push({ obj:f, cls:'Filter', col:'—', dtype:'Qualification', mapped:f.replace(/ Filter$/, '') + ' Qualification', conf:70 + Math.floor(Math.random() * 29) }));
+  return rows;
+}
+
+$('#genRun').addEventListener('click', () => run('Generating mapping', async () => {
+  const f = genFile.file;
+  const picked = $('#genType').value;
+  const type = picked === 'Auto-detect' ? inferType(f.name) : picked;
+
+  await S.step('reading', `Opening <b>${esc(f.name)}</b> (${esc(bytes(f.size))}) · worksheet <b>${esc($('#genSheet').value)}</b>.`);
+  await S.step('extracting', `Isolating the data-element block; discarding formatting rows and merged headers.`);
+  await S.step('reasoning', `Report type resolved as <b>${esc(type)}</b> (${picked === 'Auto-detect' ? 'auto-detected' : 'specified by you'}).`, { tone:'accent' });
+
+  genRowsData = makeMapping(type);
+  const low = genRowsData.filter(r => r.conf < 80).length;
+
+  await S.step('mapping', `Mapped ${genRowsData.length} objects to MicroStrategy metadata — ${genRowsData.filter(r => r.cls === 'Attribute').length} attributes, ${genRowsData.filter(r => r.cls === 'Metric').length} metrics, ${genRowsData.filter(r => r.cls === 'Prompt').length} prompts, ${genRowsData.filter(r => r.cls === 'Filter').length} filters.`);
+  if (low) await S.step('review', `${low} object${low === 1 ? '' : 's'} scored below 80% confidence and ${low === 1 ? 'is' : 'are'} worth a human look before you build.`, { tone:'accent' });
+  await S.step('complete', `Mapping document ready to download or send straight to a build.`, { tone:'ok' });
+
+  $('#genRows').innerHTML = genRowsData.map(r => `
+    <tr>
+      <td>${esc(r.obj)}</td>
+      <td><span class="tag">${esc(r.cls)}</span></td>
+      <td class="mono" style="font-size:11px">${esc(r.col)}</td>
+      <td style="color:var(--ink-3)">${esc(r.dtype)}</td>
+      <td class="mono" style="font-size:11px">${esc(r.mapped)}</td>
+      <td><div class="conf"><div class="conf__bar"><div class="conf__fill" style="width:${r.conf}%"></div></div><span class="conf__val">${r.conf}%</span></div></td>
+    </tr>`).join('');
+  $('#genCount').textContent = `${genRowsData.length} objects · ${type}`;
+  $('#genResult').hidden = false;
+  $('#genResult').dataset.type = type;
+  toast('Mapping generated.', 'ok');
+}));
+
+$('#genDownload').addEventListener('click', () => {
+  if (!genRowsData.length){ toast('Generate a mapping first.', 'bad'); return; }
+  const csv = ['Object,Class,Source Column,Data Type,Mapped To,Confidence']
+    .concat(genRowsData.map(r => [r.obj, r.cls, r.col, r.dtype, r.mapped, r.conf + '%'].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')))
+    .join('\n');
+  const url = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mstr_mapping_' + ($('#genResult').dataset.type || 'report').toLowerCase() + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Mapping downloaded.', 'ok');
+});
+
+$('#genUse').addEventListener('click', () => {
+  if (!genRowsData.length){ toast('Generate a mapping first.', 'bad'); return; }
+  const type = $('#genResult').dataset.type || 'Dispense';
+  setType(mapCfg, type);
+  autoSelect(mapCfg, { p:99, f:99 });
+  mapCfg.name = (genFile.file ? genFile.file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') : type + ' Report');
+  mapFile.set({ name:'mstr_mapping_' + type.toLowerCase() + '.csv', size:4096 + genRowsData.length * 96, origin:'Generated' });
+  mapEditor.paint();
+  setMode('map');
+  syncButtons();
+  go('new');
+  toast('Mapping carried over — review and build.', 'ok');
+});
+
+$('#genReset').addEventListener('click', () => {
+  genFile.clear(); genRowsData = [];
+  $('#genResult').hidden = true; $('#genSheet').value = 'Auto-detect'; $('#genType').value = 'Auto-detect';
+  syncButtons(); toast('Mapping form reset.');
+});
+
+/* ==========================================================================
+   K. PAGE 3 — FREE SQL
+   ========================================================================== */
+const sqlText = $('#sqlText');
+function sqlStats(){
+  const v = sqlText.value;
+  $('#sqlLines').textContent = (v ? v.split('\n').length : 0) + ' lines';
+  $('#sqlChars').textContent = v.length + ' characters';
+  $('#sqlParams').textContent = (v.match(/\?/g) || []).length + ' parameters';
+}
+sqlText.addEventListener('input', sqlStats);
+sqlStats();
+
+function sqlCheck(){
+  const v = sqlText.value.trim();
+  if (!v) return { ok:false, msg:'The editor is empty — paste a query to continue.' };
+  if (!/^\s*(with|select)\b/i.test(v)) return { ok:false, msg:'A Freeform SQL report must begin with SELECT or WITH.' };
+  const banned = v.match(/\b(drop|delete|truncate|insert|update|alter|grant)\b/i);
+  if (banned) return { ok:false, msg:`Statement contains “${banned[0].toUpperCase()}”. Only read-only queries can be published.` };
+  const unbalanced = (v.match(/\(/g) || []).length !== (v.match(/\)/g) || []).length;
+  if (unbalanced) return { ok:false, msg:'Parentheses are unbalanced.' };
+  return { ok:true, msg:`Valid read-only statement · ${(v.match(/\?/g) || []).length} prompt parameter(s) · ${v.split('\n').length} lines.` };
+}
+function sqlNote(res){
+  $('#sqlNote').innerHTML = `<div class="note ${res.ok ? 'note--ok' : 'note--bad'}">
+    <i data-lucide="${res.ok ? 'check-circle-2' : 'alert-triangle'}"></i>
+    <span><strong>${res.ok ? 'Passed.' : 'Blocked.'}</strong> ${esc(res.msg)}</span></div>`;
+  icons();
+}
+$('#sqlValidate').addEventListener('click', () => { const r = sqlCheck(); sqlNote(r); toast(r.ok ? 'Query validated.' : 'Query failed validation.', r.ok ? 'ok' : 'bad'); });
+$('#sqlClear').addEventListener('click', () => { sqlText.value = ''; $('#sqlNote').innerHTML = ''; sqlStats(); sqlText.focus(); toast('Editor cleared.'); });
+
+$('#sqlBuild').addEventListener('click', () => {
+  const res = sqlCheck();
+  sqlNote(res);
+  if (!res.ok){ toast('Fix the query before building.', 'bad'); return; }
+  const name = $('#sqlName').value.trim();
+  if (!name){ toast('Give the report a name first.', 'bad'); $('#sqlName').focus(); return; }
+
+  run('Building SQL report', async () => {
+    const v = sqlText.value.trim();
+    const params = (v.match(/\?/g) || []).length;
+    await S.step('parsing', `Parsing ${v.split('\n').length} lines of ${esc($('#sqlDialect').textContent.replace(' dialect',''))} SQL. ${params} positional parameter${params === 1 ? '' : 's'} detected.`);
+    await S.step('validate', `Statement is read-only. Estimated cost is moderate; no full table scans on unpartitioned facts.`);
+    await S.step('connect', `Binding to database instance <b>${esc($('#sqlDb').value)}</b> via DSN <code>${esc(CONN.dsn || 'EDW_SNOWFLAKE_PROD')}</code>.`);
+    await S.step('columns', `Sampling the result set — 6 columns resolved to 3 attributes and 3 metrics.`);
+    await S.step('build', `Creating Freeform SQL report <b>${esc(name)}</b> in <code>${esc($('#sqlFolder').value)}</code>.`, { think:850 });
+    await S.step('complete', `<b>${esc(name)}</b> was created successfully.`, { tone:'ok' });
+    S.card(`
+      <div class="ev-card__head"><i data-lucide="check-circle-2" style="width:13px;height:13px"></i> Report created</div>
+      <div class="ev-card__body"><dl class="defs">
+        <dt>Report ID</dt><dd class="mono" style="font-size:10.5px">SQL-${Math.random().toString(36).slice(2,8).toUpperCase()}</dd>
+        <dt>Instance</dt><dd>${esc($('#sqlDb').value)}</dd>
+        <dt>Parameters</dt><dd class="num">${params}</dd>
+        <dt>Location</dt><dd class="mono" style="font-size:10.5px">${esc($('#sqlFolder').value)}</dd>
+      </dl></div>`, 'ev-card--ok');
+    toast(name + ' created.', 'ok');
+  });
+});
+
+/* ==========================================================================
+   L. PAGE 4 — CONNECTION
+   ========================================================================== */
+const CONN_KEY = 'mstr.connection';
+const CONN_FIELDS = {
+  library:'#cLibrary', server:'#cServer', port:'#cPort', project:'#cProject',
+  auth:'#cAuth', user:'#cUser', pass:'#cPass', token:'#cToken',
+  db:'#cDb', dsn:'#cDsn', folder:'#cFolder', template:'#cTemplate'
+};
+const CONN_DEFAULTS = {
+  library:'', server:'', port:'34952', project:'', auth:'Standard',
+  user:'', pass:'', token:'', db:'', dsn:'', folder:'/Public Objects/Reports', template:'Standard Grid'
+};
+let CONN = Object.assign({}, CONN_DEFAULTS);
+
+$('#cTemplate').innerHTML = TEMPLATES.map(t => `<option>${t}</option>`).join('');
+
+function connRead(){
+  const o = {};
+  Object.entries(CONN_FIELDS).forEach(([k, sel]) => o[k] = $(sel).value.trim());
+  return o;
+}
+function connWrite(o){
+  Object.entries(CONN_FIELDS).forEach(([k, sel]) => $(sel).value = o[k] ?? '');
+  authMode();
+}
+function authMode(){
+  const m = $('#cAuth').value;
+  const tokenish = (m === 'API Token' || m === 'OAuth');
+  const sso = (m === 'SAML');
+  $('#cUser').disabled = tokenish || sso;
+  $('#cPass').disabled = tokenish || sso;
+  $('#cToken').disabled = !tokenish;
+  $('#cTokenHint').textContent = tokenish
+    ? 'Required for this auth mode.'
+    : sso ? 'Not used — SAML redirects to the corporate identity provider.'
+          : 'Used when auth mode is API Token or OAuth.';
+}
+$('#cAuth').addEventListener('change', authMode);
+
+function connBadge(){
+  const ok = !!(CONN.library && CONN.server && CONN.project);
+  $('#connDot').className = 'dot ' + (ok ? 'dot--ok' : 'dot--off');
+  $('#connText').textContent = ok ? (CONN.project.length > 20 ? CONN.project.slice(0, 20) + '…' : CONN.project) : 'Not configured';
+  $('#connMeta').textContent = ok ? (CONN.auth || '').slice(0, 8) : '—';
+  $('#connChip').title = ok ? `${CONN.server}:${CONN.port} · ${CONN.project}` : 'No MSTR connection saved — open the connection page.';
+}
+
+$('#connForm').addEventListener('submit', e => {
+  e.preventDefault();
+  CONN = connRead();
+  const missing = ['library','server','project'].filter(k => !CONN[k]);
+  if (missing.length){
+    $('#connNote').innerHTML = `<div class="note note--bad"><i data-lucide="alert-triangle"></i><span><strong>Not saved.</strong> Library URL, Intelligence Server and Project name are required.</span></div>`;
+    icons(); toast('Fill the required fields first.', 'bad'); return;
+  }
+  const safe = Object.assign({}, CONN, { pass:'', token:'' });
+  store.set(CONN_KEY, safe);
+  connBadge();
+  $('#connNote').innerHTML = `<div class="note note--ok"><i data-lucide="check-circle-2"></i><span><strong>Saved.</strong> Configuration stored in this browser. Password and API token are deliberately not persisted.</span></div>`;
+  icons();
+  toast('Configuration saved.', 'ok');
+});
+
+$('#cTest').addEventListener('click', async () => {
+  const btn = $('#cTest');
+  const cur = connRead();
+  const before = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Testing…';
+  $('#connNote').innerHTML = '';
+  await sleep(1500);
+  btn.innerHTML = before; btn.disabled = false; icons();
+
+  const missing = [];
+  if (!cur.library) missing.push('Library URL');
+  if (!cur.server) missing.push('Intelligence Server');
+  if (!cur.project) missing.push('Project name');
+  if (!cur.port || isNaN(Number(cur.port))) missing.push('a numeric Port');
+  if ((cur.auth === 'API Token' || cur.auth === 'OAuth') && !cur.token) missing.push('an API token');
+  if ((cur.auth === 'Standard' || cur.auth === 'LDAP') && !cur.user) missing.push('a username');
+
+  if (missing.length){
+    $('#connNote').innerHTML = `<div class="note note--bad"><i data-lucide="alert-triangle"></i><span><strong>Connection failed.</strong> Missing ${esc(missing.join(', '))}.</span></div>`;
+    toast('Connection test failed.', 'bad');
+  } else {
+    $('#connNote').innerHTML = `<div class="note note--ok"><i data-lucide="check-circle-2"></i><span><strong>Connected.</strong> ${esc(cur.server)}:${esc(cur.port)} · project <strong>${esc(cur.project)}</strong> · ${esc(cur.auth)} auth · round-trip ${(120 + Math.random() * 90).toFixed(0)} ms.</span></div>`;
+    toast('Connection successful.', 'ok');
+    CONN = cur; connBadge();
+  }
+  icons();
+});
+
+$('#cReset').addEventListener('click', () => {
+  connWrite(CONN_DEFAULTS);
+  store.del(CONN_KEY);
+  CONN = Object.assign({}, CONN_DEFAULTS);
+  connBadge();
+  $('#connNote').innerHTML = '';
+  toast('Connection reset.');
+});
+
+/* ==========================================================================
+   M. BOOT
+   ========================================================================== */
+(function boot(){
+  const saved = store.get(CONN_KEY, null);
+  CONN = Object.assign({}, CONN_DEFAULTS, saved || {});
+  connWrite(CONN);
+  connBadge();
+  syncButtons();
+  icons();
+  window.addEventListener('load', icons);
+  /* lucide arrives deferred — paint icons once it is present */
+  let tries = 0;
+  const iv = setInterval(() => { icons(); if (window.lucide || ++tries > 20) clearInterval(iv); }, 150);
+})();
+</script>
+</body>
+</html>

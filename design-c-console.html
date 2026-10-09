@@ -1,0 +1,2681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MSTR Report Builder — Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+/* ============================================================================
+   MSTR REPORT BUILDER — "COMMAND CONSOLE"
+   Design system: warm neutral gray ramp, CVS red as the single decisive accent,
+   sharp geometry (2-3px radii), mono for every identifier, high density.
+   ========================================================================== */
+
+/* --- 1. TOKENS ----------------------------------------------------------- */
+:root{
+  /* warm neutral ramp — no blue tint anywhere */
+  --n-0:#0c0b0a;   /* app backdrop      */
+  --n-1:#121110;   /* panel             */
+  --n-2:#171614;   /* raised surface    */
+  --n-3:#1d1b19;   /* row hover         */
+  --n-4:#24221f;   /* pressed / well    */
+  --line:#2a2724;
+  --line-2:#3a3632;
+  --line-3:#4a4540;
+
+  --fg-1:#f4f1ee;  /* primary text      */
+  --fg-2:#bdb7b0;  /* secondary         */
+  --fg-3:#8d8781;  /* tertiary (AA ok)  */
+  --fg-4:#6b6560;  /* decorative only   */
+
+  /* accent — CVS red. -ink is the lightened variant for text on dark. */
+  --acc:#CC0000;
+  --acc-hi:#e50c0c;
+  --acc-ink:#ff6a5e;
+  --acc-dim:rgba(204,0,0,.16);
+  --acc-line:rgba(204,0,0,.5);
+
+  --ok:#5aa87a;
+  --ok-dim:rgba(90,168,122,.14);
+  --warn:#c99a3e;
+  --warn-dim:rgba(201,154,62,.14);
+  --err:#d9605a;
+  --info:#8f9bb0;
+
+  --focus:#ff7b70;
+
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+
+  --r:3px;
+  --r-lg:4px;
+
+  --rail:212px;
+  --stream:372px;
+  --top:42px;
+  --status:26px;
+
+  --t:110ms cubic-bezier(.3,.7,.4,1);
+}
+
+/* --- 2. RESET ------------------------------------------------------------ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--n-0);
+  color:var(--fg-1);
+  font-size:13px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow:hidden;
+}
+button,input,select,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+ul{list-style:none}
+::selection{background:var(--acc);color:#fff}
+
+/* crisp, unmistakable focus — this app is keyboard-first */
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px;border-radius:1px}
+.no-fv:focus-visible{outline-offset:-2px}
+
+/* scrollbars: thin, neutral, always present where it scrolls */
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--line-2);border:2px solid var(--n-1);border-radius:99px}
+*::-webkit-scrollbar-thumb:hover{background:var(--line-3)}
+
+/* --- 3. PRIMITIVES ------------------------------------------------------- */
+.mono{font-family:var(--mono);font-variant-ligatures:none}
+.dim{color:var(--fg-3)}
+.kbd{
+  font-family:var(--mono);font-size:10px;font-weight:500;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:17px;height:17px;padding:0 4px;
+  background:var(--n-3);border:1px solid var(--line-2);
+  border-bottom-width:2px;border-radius:var(--r);
+  color:var(--fg-2);white-space:nowrap;
+}
+.kbd.lite{background:transparent;border-color:var(--line);color:var(--fg-3);border-bottom-width:1px}
+
+.sec-label{
+  font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--fg-3);font-family:var(--mono);
+}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  height:28px;padding:0 10px;
+  background:var(--n-2);border:1px solid var(--line-2);border-radius:var(--r);
+  font-size:12px;font-weight:500;color:var(--fg-2);
+  transition:background var(--t),border-color var(--t),color var(--t);
+  white-space:nowrap;user-select:none;
+}
+.btn:hover:not(:disabled){background:var(--n-3);border-color:var(--line-3);color:var(--fg-1)}
+.btn:active:not(:disabled){background:var(--n-4);transform:translateY(.5px)}
+.btn:disabled{opacity:.4;color:var(--fg-4)}
+.btn i,.btn svg{width:13px;height:13px;flex:none}
+.btn .kbd{margin-left:2px}
+
+.btn-primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.btn-primary:hover:not(:disabled){background:var(--acc-hi);border-color:var(--acc-hi);color:#fff}
+.btn-primary:active:not(:disabled){background:#b30000}
+.btn-primary:disabled{background:var(--n-2);border-color:var(--line);color:var(--fg-4)}
+.btn-primary .kbd{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.22);color:#fff}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-ghost:hover:not(:disabled){background:var(--n-3);border-color:var(--line)}
+.btn-danger:hover:not(:disabled){color:var(--err);border-color:rgba(217,96,90,.5)}
+.btn-sm{height:24px;padding:0 8px;font-size:11.5px}
+.btn-sm i,.btn-sm svg{width:12px;height:12px}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field > label{font-size:11px;font-weight:600;color:var(--fg-2);display:flex;align-items:center;gap:6px}
+.field > label .req{color:var(--acc-ink);font-size:10px}
+.hint{font-size:10.5px;color:var(--fg-3);font-family:var(--mono)}
+
+.inp{
+  height:30px;padding:0 9px;width:100%;
+  background:var(--n-0);border:1px solid var(--line-2);border-radius:var(--r);
+  font-size:12.5px;color:var(--fg-1);
+  transition:border-color var(--t),background var(--t);
+}
+.inp::placeholder{color:var(--fg-4)}
+.inp:hover:not(:disabled){border-color:var(--line-3)}
+.inp:focus{border-color:var(--acc);background:var(--n-1)}
+.inp:focus-visible{outline:none;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.inp:disabled{background:var(--n-1);color:var(--fg-4);border-color:var(--line);cursor:not-allowed}
+.inp.mono{font-size:12px;letter-spacing:-.1px}
+select.inp{
+  appearance:none;cursor:pointer;padding-right:26px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238d8781' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+select.inp option{background:var(--n-2);color:var(--fg-1)}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+
+/* --- 4. APP SHELL -------------------------------------------------------- */
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* 4a. top bar */
+.topbar{
+  height:var(--top);flex:none;display:flex;align-items:center;gap:10px;
+  padding:0 10px 0 12px;background:var(--n-1);border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:8px;padding-right:12px;margin-right:2px;border-right:1px solid var(--line)}
+.brand-mark{
+  width:20px;height:20px;flex:none;display:grid;place-items:center;border-radius:2px;
+  background:var(--acc);color:#fff;font-family:var(--mono);font-weight:700;font-size:11px;
+}
+.brand-name{font-size:12.5px;font-weight:650;letter-spacing:-.2px;white-space:nowrap}
+.brand-name b{color:var(--acc-ink);font-weight:650}
+
+.crumbs{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--fg-3);min-width:0}
+.crumbs .sep{color:var(--line-3)}
+.crumbs .cur{color:var(--fg-1)}
+
+.topbar-spacer{flex:1}
+
+/* the palette trigger reads like a search field but is a button */
+.palette-trigger{
+  display:flex;align-items:center;gap:8px;height:26px;padding:0 7px 0 8px;
+  background:var(--n-0);border:1px solid var(--line-2);border-radius:var(--r);
+  color:var(--fg-3);font-size:11.5px;min-width:206px;
+  transition:border-color var(--t),color var(--t);
+}
+.palette-trigger:hover{border-color:var(--line-3);color:var(--fg-2)}
+.palette-trigger i{width:12px;height:12px}
+.palette-trigger .kbd{margin-left:auto}
+
+.conn-pill{
+  display:flex;align-items:center;gap:6px;height:26px;padding:0 9px;
+  border:1px solid var(--line-2);border-radius:var(--r);background:var(--n-2);
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-2);
+  transition:border-color var(--t),background var(--t);
+}
+.conn-pill:hover{border-color:var(--line-3);background:var(--n-3)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--fg-4);flex:none}
+.dot.on{background:var(--ok)}
+.dot.off{background:var(--err)}
+.dot.busy{background:var(--warn);animation:pulse 1s steps(2,end) infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+/* 4b. body split */
+.body{flex:1;display:flex;min-height:0}
+
+/* 4c. left rail */
+.rail{
+  width:var(--rail);flex:none;background:var(--n-1);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow-y:auto;
+}
+.rail-group{padding:10px 8px 4px}
+.rail-group + .rail-group{border-top:1px solid var(--line);margin-top:4px}
+.rail-group .sec-label{padding:0 6px 6px}
+.nav{
+  display:flex;align-items:center;gap:9px;width:100%;height:29px;padding:0 8px;
+  border-radius:var(--r);border:1px solid transparent;
+  font-size:12.5px;font-weight:500;color:var(--fg-2);text-align:left;position:relative;
+  transition:background var(--t),color var(--t);
+}
+.nav + .nav{margin-top:1px}
+.nav i,.nav svg{width:14px;height:14px;flex:none;color:var(--fg-3)}
+.nav:hover{background:var(--n-3);color:var(--fg-1)}
+.nav:hover i{color:var(--fg-2)}
+/* selection: crisp bar + flat fill, no glow */
+.nav[aria-current="page"]{background:var(--acc-dim);color:#fff;font-weight:600}
+.nav[aria-current="page"] i,.nav[aria-current="page"] svg{color:var(--acc-ink)}
+.nav[aria-current="page"]::before{
+  content:"";position:absolute;left:-8px;top:3px;bottom:3px;width:2px;background:var(--acc);
+}
+.nav .nav-key{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--fg-4)}
+.nav[aria-current="page"] .nav-key{color:var(--acc-ink)}
+
+.rail-meta{margin-top:auto;padding:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+.meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-family:var(--mono);font-size:10.5px}
+.meta-row .k{color:var(--fg-4)}
+.meta-row .v{color:var(--fg-2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta-row .v.acc{color:var(--acc-ink)}
+
+/* 4d. main scroll region */
+.main{flex:1;min-width:0;overflow-y:auto;background:var(--n-0);scroll-behavior:smooth}
+.page{display:none;padding:16px 20px 40px;max-width:1080px}
+.page.on{display:block}
+
+.page-head{display:flex;align-items:flex-start;gap:14px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.page-head h1{font-size:16px;font-weight:650;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.page-head p{font-size:12px;color:var(--fg-3);margin-top:3px;max-width:62ch}
+.page-head .spacer{flex:1}
+
+/* panels */
+.panel{background:var(--n-1);border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:12px}
+.panel-head{
+  display:flex;align-items:center;gap:9px;height:32px;padding:0 11px;
+  border-bottom:1px solid var(--line);background:var(--n-2);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.panel-head .sec-label{color:var(--fg-2)}
+.panel-head .spacer{flex:1}
+.panel-head i,.panel-head svg{width:13px;height:13px;color:var(--fg-3)}
+.panel-body{padding:12px}
+.panel-foot{display:flex;align-items:center;gap:8px;padding:9px 11px;border-top:1px solid var(--line);background:var(--n-2);border-radius:0 0 var(--r-lg) var(--r-lg)}
+.panel-foot .spacer{flex:1}
+
+.count-chip{
+  font-family:var(--mono);font-size:10px;font-weight:600;padding:1px 5px;border-radius:2px;
+  background:var(--n-4);color:var(--fg-2);border:1px solid var(--line-2);
+}
+.count-chip.acc{background:var(--acc-dim);border-color:var(--acc-line);color:var(--acc-ink)}
+
+/* --- 5. SEGMENTED MODE SWITCH -------------------------------------------- */
+.seg{display:inline-flex;padding:2px;background:var(--n-2);border:1px solid var(--line-2);border-radius:var(--r)}
+.seg button{
+  display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:2px;
+  font-size:12px;font-weight:550;color:var(--fg-3);transition:background var(--t),color var(--t);
+}
+.seg button i,.seg button svg{width:13px;height:13px}
+.seg button:hover{color:var(--fg-1)}
+.seg button[aria-selected="true"]{background:var(--acc);color:#fff}
+.seg button[aria-selected="true"] .kbd{background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.25);color:#fff}
+
+/* --- 6. DROPZONE / FILE CHIP --------------------------------------------- */
+.drop{
+  display:flex;align-items:center;gap:11px;padding:14px 13px;width:100%;text-align:left;
+  background:var(--n-0);
+  border:1px dashed var(--line-2);border-radius:var(--r);
+  transition:border-color var(--t),background var(--t);
+}
+.drop:hover{border-color:var(--line-3);background:var(--n-2)}
+.drop.over{border-color:var(--acc);background:var(--acc-dim);border-style:solid}
+.drop-ico{
+  width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:var(--r);
+  background:var(--n-3);border:1px solid var(--line-2);color:var(--fg-3);
+}
+.drop.over .drop-ico{background:var(--acc);border-color:var(--acc);color:#fff}
+.drop-ico i,.drop-ico svg{width:15px;height:15px}
+.drop-t{font-size:12.5px;font-weight:550;color:var(--fg-1)}
+.drop-s{font-size:10.5px;color:var(--fg-3);font-family:var(--mono);margin-top:2px}
+
+.file-chip{
+  display:flex;align-items:center;gap:10px;padding:8px 9px;
+  background:var(--n-2);border:1px solid var(--line-2);border-left:2px solid var(--ok);border-radius:var(--r);
+}
+.file-chip .fi{width:26px;height:26px;flex:none;display:grid;place-items:center;background:var(--n-4);border-radius:2px;color:var(--ok)}
+.file-chip .fi i,.file-chip .fi svg{width:13px;height:13px}
+.file-chip .fn{font-family:var(--mono);font-size:11.5px;color:var(--fg-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .fm{font-family:var(--mono);font-size:10px;color:var(--fg-3);margin-top:1px}
+.file-chip .grow{flex:1;min-width:0}
+
+/* --- 7. SOURCE TABS ------------------------------------------------------ */
+.tabs{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;width:max-content}
+.tabs button{
+  display:flex;align-items:center;gap:6px;height:26px;padding:0 11px;background:var(--n-2);
+  font-size:11.5px;font-weight:500;color:var(--fg-3);transition:background var(--t),color var(--t);
+}
+.tabs button i,.tabs button svg{width:12px;height:12px}
+.tabs button:hover{background:var(--n-3);color:var(--fg-1)}
+.tabs button[aria-selected="true"]{background:var(--n-4);color:var(--fg-1);box-shadow:inset 0 -2px 0 var(--acc)}
+
+/* --- 8. PICKER (prompts / filters) --------------------------------------- */
+.picker{
+  border:1px solid var(--line);border-radius:var(--r);background:var(--n-0);
+  display:flex;flex-direction:column;min-height:0;
+}
+.picker:focus-within{border-color:var(--line-3)}
+.picker-head{
+  display:flex;align-items:center;gap:8px;height:28px;padding:0 9px;
+  border-bottom:1px solid var(--line);background:var(--n-2);
+}
+.picker-head .spacer{flex:1}
+.picker-list{max-height:330px;overflow-y:auto;padding:3px;outline:none}
+.picker-list:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.picker-empty{padding:22px 12px;text-align:center;color:var(--fg-4);font-size:11.5px;font-family:var(--mono)}
+
+.opt{
+  display:flex;align-items:center;gap:8px;height:26px;padding:0 6px;border-radius:2px;
+  cursor:pointer;user-select:none;position:relative;
+  border:1px solid transparent;
+}
+.opt:hover{background:var(--n-2)}
+.opt.cursor{background:var(--n-3);border-color:var(--line-2)}
+.opt.on{background:var(--acc-dim)}
+.opt.on.cursor{background:rgba(204,0,0,.26);border-color:var(--acc-line)}
+.opt.on::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;background:var(--acc)}
+.opt .box{
+  font-family:var(--mono);font-size:11px;font-weight:700;width:15px;flex:none;text-align:center;
+  color:var(--fg-4);
+}
+.opt.on .box{color:var(--acc-ink)}
+.opt .nm{font-size:12px;color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opt.on .nm{color:#fff;font-weight:550}
+.opt .grow{flex:1;min-width:0}
+.opt .tag{font-family:var(--mono);font-size:9.5px;color:var(--fg-4);flex:none}
+.opt.on .tag{color:var(--acc-ink)}
+.opt .chev{
+  width:16px;height:16px;flex:none;display:grid;place-items:center;border-radius:2px;color:var(--fg-4);
+  transition:transform var(--t),color var(--t);
+}
+.opt .chev:hover{background:var(--n-4);color:var(--fg-1)}
+.opt .chev i,.opt .chev svg{width:11px;height:11px}
+.opt.exp .chev{transform:rotate(90deg)}
+
+/* sub-options: indented well, mono, flat */
+.subs{
+  margin:1px 0 3px 21px;padding:5px 6px 6px;
+  border-left:1px solid var(--line-2);background:var(--n-1);border-radius:0 2px 2px 0;
+  display:flex;flex-wrap:wrap;gap:3px;
+}
+.sub{
+  display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 7px;border-radius:2px;
+  border:1px solid var(--line-2);background:var(--n-2);
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-3);
+  transition:background var(--t),color var(--t),border-color var(--t);
+}
+.sub:hover{background:var(--n-4);color:var(--fg-1);border-color:var(--line-3)}
+.sub.cursor{border-color:var(--fg-4);color:var(--fg-1)}
+.sub.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:500}
+.sub.on.cursor{background:var(--acc-hi);border-color:#fff}
+.sub::before{content:"+";font-weight:700;opacity:.55}
+.sub.on::before{content:"\2713";opacity:1}
+
+/* --- 9. AI ACTIVITY STREAM ----------------------------------------------- */
+.stream{
+  width:var(--stream);flex:none;background:var(--n-1);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;min-height:0;
+}
+.stream.hide{display:none}
+.stream-head{
+  display:flex;align-items:center;gap:8px;height:32px;flex:none;padding:0 10px;
+  border-bottom:1px solid var(--line);background:var(--n-2);
+}
+.stream-head .spacer{flex:1}
+.stream-body{flex:1;overflow-y:auto;padding:8px 10px 14px;font-size:12px}
+.stream-foot{
+  flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
+  border-top:1px solid var(--line);background:var(--n-2);
+}
+.stream-foot .spacer{flex:1}
+
+.st-idle{padding:26px 14px;text-align:center;color:var(--fg-4)}
+.st-idle i,.st-idle svg{width:20px;height:20px;margin-bottom:8px;color:var(--line-3)}
+.st-idle p{font-size:11.5px;line-height:1.7}
+.st-idle .kbd{margin:0 1px}
+
+.st-run{margin-bottom:10px}
+.st-run-head{
+  display:flex;align-items:center;gap:7px;padding:5px 7px;margin-bottom:4px;
+  background:var(--n-2);border:1px solid var(--line);border-left:2px solid var(--fg-4);border-radius:2px;
+  font-family:var(--mono);font-size:10px;color:var(--fg-3);
+}
+.st-run-head.active{border-left-color:var(--acc)}
+.st-run-head.done{border-left-color:var(--ok)}
+.st-run-head.stop{border-left-color:var(--warn)}
+.st-run-head b{color:var(--fg-1);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:9.5px}
+.st-run-head .spacer{flex:1}
+
+.st-row{display:flex;gap:8px;padding:3px 0;align-items:flex-start;position:relative}
+.st-row .ts{font-family:var(--mono);font-size:10px;color:var(--fg-4);flex:none;padding-top:1px;width:60px;letter-spacing:-.3px}
+.st-row .ico{width:13px;flex:none;display:flex;justify-content:center;padding-top:2px}
+.st-row .mk{font-family:var(--mono);font-size:11px;line-height:1;color:var(--fg-4)}
+.st-row.run .mk{color:var(--acc-ink);animation:blink 900ms steps(2,end) infinite}
+.st-row.done .mk{color:var(--ok)}
+.st-row.warn .mk{color:var(--warn)}
+.st-row.err .mk{color:var(--err)}
+@keyframes blink{50%{opacity:.2}}
+.st-row .txt{flex:1;min-width:0;color:var(--fg-2);font-size:12px;line-height:1.42}
+.st-row.run .txt{color:var(--fg-1)}
+.st-row.done .txt{color:var(--fg-2)}
+.st-row .txt em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--fg-1);background:var(--n-3);padding:0 3px;border-radius:2px;border:1px solid var(--line)}
+.st-row .dur{font-family:var(--mono);font-size:9.5px;color:var(--fg-4);flex:none;padding-top:2px}
+.st-sub{margin:2px 0 4px 81px;font-family:var(--mono);font-size:10.5px;color:var(--fg-3);line-height:1.6}
+.st-sub span{color:var(--fg-2)}
+
+.typing{display:flex;gap:3px;padding:4px 0 4px 81px;align-items:center;height:20px}
+.typing i{width:3px;height:3px;background:var(--fg-4);border-radius:50%;animation:tp 1.05s ease-in-out infinite}
+.typing i:nth-child(2){animation-delay:.16s}
+.typing i:nth-child(3){animation-delay:.32s}
+@keyframes tp{0%,60%,100%{opacity:.22;transform:translateY(0)}30%{opacity:.95;transform:translateY(-2px)}}
+
+/* result cards inside the stream */
+.card{margin:5px 0 7px 81px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--n-2);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--n-3);border-bottom:1px solid var(--line)}
+.card-h .sec-label{font-size:9px}
+.card-h .spacer{flex:1}
+.card-b{padding:7px 8px;display:flex;flex-direction:column;gap:4px}
+.kv{display:flex;gap:8px;align-items:baseline;font-family:var(--mono);font-size:10.5px}
+.kv .k{color:var(--fg-4);width:76px;flex:none}
+.kv .v{color:var(--fg-1);flex:1;min-width:0;word-break:break-word}
+.kv .v.acc{color:var(--acc-ink)}
+.card-f{display:flex;gap:6px;padding:7px 8px;border-top:1px solid var(--line);background:var(--n-1)}
+
+.approve{border-color:var(--acc-line)}
+.approve .card-h{background:var(--acc-dim);border-bottom-color:var(--acc-line)}
+.approve .card-h .sec-label{color:var(--acc-ink)}
+
+.meter{height:3px;background:var(--n-4);border-radius:99px;overflow:hidden;flex:1;min-width:40px}
+.meter i{display:block;height:100%;background:var(--ok)}
+.meter.mid i{background:var(--warn)}
+
+/* --- 10. STATUS BAR ------------------------------------------------------ */
+.statusbar{
+  height:var(--status);flex:none;display:flex;align-items:center;gap:0;
+  background:var(--n-1);border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-3);
+}
+.sb{display:flex;align-items:center;gap:6px;padding:0 10px;height:100%;border-right:1px solid var(--line);white-space:nowrap}
+.sb.btn-like{transition:background var(--t),color var(--t)}
+.sb.btn-like:hover{background:var(--n-3);color:var(--fg-1)}
+.sb .v{color:var(--fg-1)}
+.sb.acc .v{color:var(--acc-ink)}
+.sb-spacer{flex:1}
+.sb-hints{display:flex;align-items:center;gap:9px;padding:0 10px;border-left:1px solid var(--line);height:100%;overflow:hidden}
+.sb-hint{display:flex;align-items:center;gap:4px;color:var(--fg-4)}
+.sb-hint .kbd{height:15px;min-width:15px;font-size:9px;border-bottom-width:1px}
+
+/* --- 11. COMMAND PALETTE ------------------------------------------------- */
+.overlay{
+  position:fixed;inset:0;z-index:90;background:rgba(6,5,5,.66);
+  display:flex;justify-content:center;align-items:flex-start;padding-top:11vh;
+}
+.overlay[hidden]{display:none}
+.palette{
+  width:min(640px,92vw);max-height:70vh;display:flex;flex-direction:column;
+  background:var(--n-1);border:1px solid var(--line-3);border-radius:var(--r-lg);
+  box-shadow:0 18px 50px rgba(0,0,0,.6);overflow:hidden;
+  animation:pop 90ms cubic-bezier(.3,.8,.4,1);
+}
+@keyframes pop{from{opacity:0;transform:translateY(-5px) scale(.995)}}
+.pal-input{display:flex;align-items:center;gap:9px;padding:0 12px;height:44px;border-bottom:1px solid var(--line);flex:none}
+.pal-input i,.pal-input svg{width:15px;height:15px;color:var(--fg-3);flex:none}
+.pal-input input{flex:1;font-size:14px;background:transparent;height:100%}
+.pal-input input::placeholder{color:var(--fg-4)}
+.pal-scope{
+  font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:2px;flex:none;
+  background:var(--acc-dim);color:var(--acc-ink);border:1px solid var(--acc-line);
+}
+.pal-list{flex:1;overflow-y:auto;padding:5px}
+.pal-group{padding:8px 8px 3px;display:flex;align-items:center;gap:7px}
+.pal-group .ln{flex:1;height:1px;background:var(--line)}
+.pal-item{
+  display:flex;align-items:center;gap:10px;height:31px;padding:0 8px;border-radius:2px;
+  cursor:pointer;position:relative;border:1px solid transparent;
+}
+.pal-item:hover{background:var(--n-2)}
+.pal-item.cursor{background:var(--acc-dim);border-color:var(--acc-line)}
+.pal-item.cursor::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:2px;background:var(--acc)}
+.pal-item .pi{width:15px;flex:none;display:grid;place-items:center;color:var(--fg-3)}
+.pal-item.cursor .pi{color:var(--acc-ink)}
+.pal-item .pi i,.pal-item .pi svg{width:13px;height:13px}
+.pal-item .lbl{flex:1;min-width:0;font-size:12.5px;color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-item.cursor .lbl{color:#fff}
+.pal-item .lbl mark{background:transparent;color:var(--acc-ink);font-weight:700}
+.pal-item.cursor .lbl mark{color:#ffd9d5}
+.pal-item .sub2{font-family:var(--mono);font-size:10px;color:var(--fg-4);flex:none}
+.pal-item .state{font-family:var(--mono);font-size:9.5px;padding:1px 5px;border-radius:2px;border:1px solid var(--line-2);color:var(--fg-3);flex:none}
+.pal-item .state.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.pal-empty{padding:30px 14px;text-align:center;color:var(--fg-4);font-family:var(--mono);font-size:11.5px}
+.pal-foot{flex:none;display:flex;align-items:center;gap:12px;padding:6px 11px;border-top:1px solid var(--line);background:var(--n-2);font-size:10.5px;color:var(--fg-4);font-family:var(--mono)}
+.pal-foot .g{display:flex;align-items:center;gap:4px}
+.pal-foot .spacer{flex:1}
+
+/* --- 12. SHORTCUT LEGEND ------------------------------------------------- */
+.legend{
+  width:min(620px,92vw);max-height:76vh;overflow-y:auto;background:var(--n-1);
+  border:1px solid var(--line-3);border-radius:var(--r-lg);box-shadow:0 18px 50px rgba(0,0,0,.6);
+}
+.legend-h{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--n-2);z-index:1}
+.legend-h .spacer{flex:1}
+.legend-b{padding:12px 13px 16px;columns:2;column-gap:22px}
+.legend-sec{break-inside:avoid;margin-bottom:14px}
+.legend-sec .sec-label{display:block;padding-bottom:5px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.legend-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11.5px;color:var(--fg-2)}
+.legend-row .keys{margin-left:auto;display:flex;gap:3px;flex:none}
+
+/* --- 13. TABLES ---------------------------------------------------------- */
+.tbl-wrap{overflow:auto;max-height:380px;border:1px solid var(--line);border-radius:var(--r)}
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
+table.tbl th{
+  position:sticky;top:0;z-index:1;background:var(--n-3);text-align:left;
+  font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--fg-3);padding:6px 9px;border-bottom:1px solid var(--line-2);white-space:nowrap;
+}
+table.tbl td{padding:5px 9px;border-bottom:1px solid var(--line);color:var(--fg-2);white-space:nowrap}
+table.tbl tbody tr:hover td{background:var(--n-2);color:var(--fg-1)}
+table.tbl tbody tr:last-child td{border-bottom:none}
+table.tbl td.m{font-family:var(--mono);font-size:11px;color:var(--fg-1)}
+.pill{font-family:var(--mono);font-size:9.5px;padding:1px 5px;border-radius:2px;border:1px solid var(--line-2);background:var(--n-3);color:var(--fg-2)}
+.pill.attr{color:#8fb4d9;border-color:rgba(143,180,217,.35)}
+.pill.metric{color:var(--ok);border-color:rgba(90,168,122,.35)}
+.pill.filter{color:var(--warn);border-color:rgba(201,154,62,.35)}
+.pill.prompt{color:var(--acc-ink);border-color:var(--acc-line)}
+
+/* --- 14. SQL EDITOR ------------------------------------------------------ */
+.sql{display:flex;background:var(--n-0);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.sql:focus-within{border-color:var(--acc)}
+.sql-gutter{
+  flex:none;width:42px;padding:9px 8px 9px 0;text-align:right;background:var(--n-1);
+  border-right:1px solid var(--line);font-family:var(--mono);font-size:11.5px;line-height:1.65;
+  color:var(--fg-4);user-select:none;overflow:hidden;
+}
+.sql textarea{
+  flex:1;min-height:250px;max-height:440px;padding:9px 11px;resize:vertical;
+  font-family:var(--mono);font-size:12px;line-height:1.65;color:var(--fg-1);
+  background:transparent;white-space:pre;overflow-wrap:normal;overflow-x:auto;tab-size:2;
+}
+.sql textarea::placeholder{color:var(--fg-4)}
+
+/* --- 15. MISC ------------------------------------------------------------ */
+.note{
+  display:flex;gap:8px;padding:8px 10px;border-radius:var(--r);
+  background:var(--n-2);border:1px solid var(--line);border-left:2px solid var(--line-3);
+  font-size:11.5px;color:var(--fg-3);line-height:1.5;
+}
+.note i,.note svg{width:13px;height:13px;flex:none;margin-top:1px;color:var(--fg-3)}
+.note.acc{border-left-color:var(--acc)}
+.note.ok{border-left-color:var(--ok)}
+.note.warn{border-left-color:var(--warn)}
+.note b{color:var(--fg-1);font-weight:600}
+.note code{font-family:var(--mono);font-size:11px;color:var(--fg-1)}
+
+.toasts{position:fixed;right:12px;bottom:calc(var(--status) + 10px);z-index:120;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.toast{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;min-width:220px;max-width:360px;
+  background:var(--n-2);border:1px solid var(--line-2);border-left:2px solid var(--fg-3);border-radius:var(--r);
+  font-size:11.5px;color:var(--fg-1);box-shadow:0 8px 22px rgba(0,0,0,.45);
+  animation:slidein 130ms cubic-bezier(.3,.8,.4,1);
+}
+@keyframes slidein{from{opacity:0;transform:translateX(10px)}}
+.toast.ok{border-left-color:var(--ok)}
+.toast.err{border-left-color:var(--err)}
+.toast.acc{border-left-color:var(--acc)}
+.toast i,.toast svg{width:13px;height:13px;flex:none}
+.toast .tx{flex:1}
+.toast .kbd{flex:none}
+
+.spin{display:inline-block;width:12px;height:12px;border:1.5px solid var(--line-3);border-top-color:var(--acc-ink);border-radius:50%;animation:sp .6s linear infinite;flex:none}
+.btn-primary .spin{border-color:rgba(255,255,255,.35);border-top-color:#fff}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* --- 16. RESPONSIVE ------------------------------------------------------ */
+@media (max-width:1180px){
+  :root{--stream:320px;--rail:184px}
+}
+@media (max-width:900px){
+  .body{flex-direction:column;overflow-y:auto}
+  .rail{width:100%;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .rail-group{padding:6px;display:flex;gap:3px;align-items:center}
+  .rail-group + .rail-group{border-top:none;border-left:1px solid var(--line);margin-top:0}
+  .rail-group .sec-label{display:none}
+  .rail-meta{display:none}
+  .nav{width:auto;white-space:nowrap}
+  .nav + .nav{margin-top:0}
+  .nav[aria-current="page"]::before{left:0;top:auto;bottom:0;right:0;width:auto;height:2px}
+  .stream{width:100%;border-left:none;border-top:1px solid var(--line);max-height:60vh}
+  .main{overflow:visible}
+  .sb-hints{display:none}
+  .legend-b{columns:1}
+}
+
+/* --- 17. REDUCED MOTION -------------------------------------------------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
+  .st-row.run .mk,.dot.busy{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== TOP BAR ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark mono" aria-hidden="true">M</div>
+      <div class="brand-name">MSTR <b>Report Builder</b></div>
+    </div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span class="mono" id="crumb-env">prod-east</span>
+      <span class="sep">/</span>
+      <span class="mono" id="crumb-proj">CVS_Enterprise_DW</span>
+      <span class="sep">/</span>
+      <span class="cur mono" id="crumb-page">new-report</span>
+    </nav>
+    <div class="topbar-spacer"></div>
+    <button class="palette-trigger" id="palette-btn" title="Open command palette">
+      <i data-lucide="search"></i><span>Search commands…</span><kbd class="kbd" id="kbd-mod">⌘K</kbd>
+    </button>
+    <button class="conn-pill" id="conn-pill" title="Go to MSTR Connection">
+      <span class="dot off" id="conn-dot"></span><span id="conn-text">DISCONNECTED</span>
+    </button>
+    <button class="btn btn-ghost btn-sm" id="legend-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+      <i data-lucide="keyboard"></i>
+    </button>
+  </header>
+
+  <div class="body">
+
+    <!-- ===== LEFT RAIL ===== -->
+    <aside class="rail">
+      <div class="rail-group">
+        <div class="sec-label">Create</div>
+        <button class="nav" data-page="new-report" aria-current="page"><i data-lucide="file-plus-2"></i>New Report<span class="nav-key">g n</span></button>
+        <button class="nav" data-page="generate-mapping"><i data-lucide="table-2"></i>Generate Mapping<span class="nav-key">g m</span></button>
+        <button class="nav" data-page="free-sql"><i data-lucide="terminal"></i>Free SQL Report<span class="nav-key">g q</span></button>
+      </div>
+      <div class="rail-group">
+        <div class="sec-label">System</div>
+        <button class="nav" data-page="connection"><i data-lucide="plug-zap"></i>MSTR Connection<span class="nav-key">g c</span></button>
+      </div>
+      <div class="rail-meta">
+        <div class="sec-label" style="margin-bottom:2px">Session</div>
+        <div class="meta-row"><span class="k">type</span><span class="v acc" id="m-type">—</span></div>
+        <div class="meta-row"><span class="k">prompts</span><span class="v" id="m-prompts">0</span></div>
+        <div class="meta-row"><span class="k">filters</span><span class="v" id="m-filters">0</span></div>
+        <div class="meta-row"><span class="k">builds</span><span class="v" id="m-builds">0</span></div>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main" id="main">
+
+      <!-- ---------- PAGE: NEW REPORT ---------- -->
+      <section class="page on" id="page-new-report">
+        <div class="page-head">
+          <div>
+            <h1>New Report</h1>
+            <p>Parse a Business Requirements Document with AI, or drive the build yourself from an existing mapping document.</p>
+          </div>
+          <div class="spacer"></div>
+          <div class="seg" role="tablist" aria-label="Creation mode">
+            <button role="tab" id="mode-brd" aria-selected="true" data-mode="brd"><i data-lucide="sparkles"></i>Upload BRD<kbd class="kbd">1</kbd></button>
+            <button role="tab" id="mode-map" aria-selected="false" data-mode="mapping"><i data-lucide="list-tree"></i>Mapping Document<kbd class="kbd">2</kbd></button>
+          </div>
+        </div>
+
+        <!-- MODE A: BRD -->
+        <div id="pane-brd">
+          <div class="panel">
+            <div class="panel-head">
+              <i data-lucide="file-search"></i><span class="sec-label">Source Document</span>
+              <div class="spacer"></div>
+              <div class="tabs" role="tablist" aria-label="BRD source">
+                <button role="tab" aria-selected="true" data-src="local"><i data-lucide="hard-drive"></i>Local Upload</button>
+                <button role="tab" aria-selected="false" data-src="sharepoint"><i data-lucide="cloud"></i>SharePoint</button>
+                <button role="tab" aria-selected="false" data-src="database"><i data-lucide="database"></i>Database</button>
+              </div>
+            </div>
+            <div class="panel-body" style="display:flex;flex-direction:column;gap:11px">
+              <div id="src-local">
+                <input type="file" id="brd-input" accept=".xlsx,.xls,.csv,.pdf,.docx" hidden/>
+                <button class="drop" id="brd-drop">
+                  <span class="drop-ico"><i data-lucide="upload"></i></span>
+                  <span>
+                    <span class="drop-t">Drop BRD here, or click to browse</span>
+                    <span class="drop-s">.xlsx · .xls · .csv · .pdf · .docx — max 25 MB</span>
+                  </span>
+                </button>
+                <div id="brd-file"></div>
+              </div>
+              <div id="src-sharepoint" hidden style="display:none;flex-direction:column;gap:11px">
+                <div class="field">
+                  <label for="sp-url">SharePoint document URL <span class="req">*</span></label>
+                  <input class="inp mono" id="sp-url" placeholder="https://cvshealth.sharepoint.com/sites/BI/Shared%20Documents/BRD_Q3.xlsx"/>
+                </div>
+                <div class="grid-2">
+                  <div class="field"><label for="sp-lib">Document library</label><input class="inp mono" id="sp-lib" value="Shared Documents"/></div>
+                  <div class="field"><label for="sp-ver">Version</label>
+                    <select class="inp" id="sp-ver"><option>Latest</option><option>Latest approved</option><option>Pinned version</option></select>
+                  </div>
+                </div>
+                <div><button class="btn" id="sp-fetch"><i data-lucide="cloud-download"></i>Fetch from SharePoint</button></div>
+              </div>
+              <div id="src-database" hidden style="display:none;flex-direction:column;gap:11px">
+                <div class="grid-2">
+                  <div class="field"><label for="db-conn">Connection</label>
+                    <select class="inp" id="db-conn"><option>EDW_PROD (Teradata)</option><option>EDW_STAGE (Teradata)</option><option>SNOWFLAKE_ANALYTICS</option><option>ORACLE_RXCLAIM</option></select>
+                  </div>
+                  <div class="field"><label for="db-table">BRD registry table</label><input class="inp mono" id="db-table" value="META.BRD_REGISTRY"/></div>
+                </div>
+                <div class="field"><label for="db-id">BRD identifier</label><input class="inp mono" id="db-id" placeholder="BRD-2026-0417"/></div>
+                <div><button class="btn" id="db-fetch"><i data-lucide="download"></i>Pull from Database</button></div>
+              </div>
+
+              <div class="note acc">
+                <i data-lucide="sparkles"></i>
+                <div>The parser extracts report type, prompts, filters, template and destination folder, then stops for your review. <b>Nothing is built until you approve it.</b></div>
+              </div>
+            </div>
+            <div class="panel-foot">
+              <span class="hint" id="brd-status">No document attached</span>
+              <div class="spacer"></div>
+              <button class="btn btn-sm" id="brd-clear" disabled><i data-lucide="x"></i>Clear</button>
+              <button class="btn btn-primary" id="brd-parse" disabled><i data-lucide="scan-line"></i>Parse with AI<kbd class="kbd">⌘↵</kbd></button>
+            </div>
+          </div>
+
+          <!-- slot the shared config editor drops into when user picks EDIT -->
+          <div id="brd-config-slot"></div>
+        </div>
+
+        <!-- MODE B: MAPPING DOCUMENT -->
+        <div id="pane-mapping" hidden>
+          <div class="panel">
+            <div class="panel-head">
+              <i data-lucide="list-tree"></i><span class="sec-label">Mapping Document</span>
+              <div class="spacer"></div><span class="hint">.xlsx · .csv · .json</span>
+            </div>
+            <div class="panel-body">
+              <input type="file" id="map-input" accept=".xlsx,.xls,.csv,.json" hidden/>
+              <button class="drop" id="map-drop">
+                <span class="drop-ico"><i data-lucide="file-spreadsheet"></i></span>
+                <span>
+                  <span class="drop-t">Drop mapping document here, or click to browse</span>
+                  <span class="drop-s">Pre-built object mapping — no AI review step</span>
+                </span>
+              </button>
+              <div id="map-file"></div>
+            </div>
+          </div>
+          <div id="map-config-slot"></div>
+        </div>
+      </section>
+
+      <!-- ---------- PAGE: GENERATE MAPPING ---------- -->
+      <section class="page" id="page-generate-mapping">
+        <div class="page-head">
+          <div>
+            <h1>Generate Mapping</h1>
+            <p>Upload an Excel BRD and the model produces a <b>mapping document</b> — the object-level bridge between source columns and MSTR schema objects. This does not build a report.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><i data-lucide="file-spreadsheet"></i><span class="sec-label">Excel BRD</span><div class="spacer"></div><span class="hint">.xlsx · .xls · .csv</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:11px">
+            <input type="file" id="gm-input" accept=".xlsx,.xls,.csv" hidden/>
+            <button class="drop" id="gm-drop">
+              <span class="drop-ico"><i data-lucide="upload"></i></span>
+              <span>
+                <span class="drop-t">Drop Excel BRD here, or click to browse</span>
+                <span class="drop-s">Sheet 1 is read as the requirements grid</span>
+              </span>
+            </button>
+            <div id="gm-file"></div>
+            <div class="grid-3">
+              <div class="field"><label for="gm-domain">Domain hint</label>
+                <select class="inp" id="gm-domain"><option>Auto-detect</option><option>Pharmacy / Dispense</option><option>Retail / Store Ops</option><option>Clinical Services</option><option>Specialty / Coram</option><option>Finance</option></select>
+              </div>
+              <div class="field"><label for="gm-schema">Target schema</label><input class="inp mono" id="gm-schema" value="EDW.RX_DISPENSE_FACT"/></div>
+              <div class="field"><label for="gm-conf">Min. confidence</label>
+                <select class="inp" id="gm-conf"><option>0.60</option><option selected>0.75</option><option>0.85</option><option>0.90</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span class="hint" id="gm-status">No document attached</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="gm-clear" disabled><i data-lucide="x"></i>Clear</button>
+            <button class="btn btn-primary" id="gm-run" disabled><i data-lucide="wand-2"></i>Generate Mapping Document<kbd class="kbd">⌘↵</kbd></button>
+          </div>
+        </div>
+
+        <div class="panel" id="gm-result" hidden>
+          <div class="panel-head">
+            <i data-lucide="table-2"></i><span class="sec-label">Extracted Objects</span>
+            <span class="count-chip acc mono" id="gm-count">0</span>
+            <div class="spacer"></div>
+            <span class="hint" id="gm-meta"></span>
+          </div>
+          <div class="panel-body" style="padding:0">
+            <div class="tbl-wrap" style="border:none;border-radius:0">
+              <table class="tbl">
+                <thead><tr>
+                  <th style="width:26px">#</th><th>Source Column</th><th>Object Name</th><th>Type</th><th>Data Type</th><th>MSTR Folder</th><th style="width:96px">Confidence</th>
+                </tr></thead>
+                <tbody id="gm-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span class="hint" id="gm-foot"></span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="gm-copy"><i data-lucide="clipboard"></i>Copy TSV</button>
+            <button class="btn btn-sm" id="gm-download"><i data-lucide="download"></i>Download .csv</button>
+            <button class="btn btn-primary btn-sm" id="gm-use"><i data-lucide="arrow-right"></i>Use to Build Report</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- PAGE: FREE SQL ---------- -->
+      <section class="page" id="page-free-sql">
+        <div class="page-head">
+          <div>
+            <h1>Free SQL Report</h1>
+            <p>Write raw SQL and publish it as a MicroStrategy Freeform SQL report. Column aliases become report objects.</p>
+          </div>
+          <div class="spacer"></div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" id="sql-sample"><i data-lucide="file-code-2"></i>Insert sample</button>
+            <button class="btn btn-sm" id="sql-format"><i data-lucide="align-left"></i>Tidy</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <i data-lucide="terminal"></i><span class="sec-label">SQL Editor</span>
+            <div class="spacer"></div>
+            <span class="hint" id="sql-meta">0 lines · 0 chars</span>
+          </div>
+          <div class="panel-body">
+            <div class="sql">
+              <div class="sql-gutter mono" id="sql-gutter" aria-hidden="true">1</div>
+              <textarea id="sql-text" spellcheck="false" aria-label="SQL query" placeholder="SELECT ..."></textarea>
+            </div>
+            <div class="grid-2" style="margin-top:12px">
+              <div class="field"><label for="sql-name">Report name <span class="req">*</span></label><input class="inp" id="sql-name" placeholder="Rx_Dispense_Adhoc_Daily"/></div>
+              <div class="field"><label for="sql-folder">Output folder</label><input class="inp mono" id="sql-folder" value="/Public Objects/Reports/Freeform"/></div>
+            </div>
+            <div class="grid-3" style="margin-top:12px">
+              <div class="field"><label for="sql-db">Database instance</label>
+                <select class="inp" id="sql-db"><option>EDW_PROD_TD</option><option>EDW_STAGE_TD</option><option>SNOWFLAKE_ANALYTICS</option><option>ORACLE_RXCLAIM</option></select>
+              </div>
+              <div class="field"><label for="sql-limit">Row limit</label>
+                <select class="inp" id="sql-limit"><option>10,000</option><option selected>50,000</option><option>250,000</option><option>Unlimited</option></select>
+              </div>
+              <div class="field"><label for="sql-cache">Cache</label>
+                <select class="inp" id="sql-cache"><option>Enabled (4h)</option><option>Enabled (24h)</option><option>Disabled</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span class="hint" id="sql-status">Not validated</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="sql-validate"><i data-lucide="check-check"></i>Validate<kbd class="kbd">⌘⇧V</kbd></button>
+            <button class="btn btn-primary" id="sql-build"><i data-lucide="play"></i>Build Freeform Report<kbd class="kbd">⌘↵</kbd></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- PAGE: CONNECTION ---------- -->
+      <section class="page" id="page-connection">
+        <div class="page-head">
+          <div>
+            <h1>MSTR Connection</h1>
+            <p>Environment credentials and defaults. Stored locally in this browser — nothing leaves the machine.</p>
+          </div>
+          <div class="spacer"></div>
+          <span class="conn-pill" style="pointer-events:none"><span class="dot off" id="conn-dot-2"></span><span id="conn-text-2" class="mono">DISCONNECTED</span></span>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><i data-lucide="server"></i><span class="sec-label">Environment</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+            <div class="field"><label for="c-library">Library URL <span class="req">*</span></label>
+              <input class="inp mono" id="c-library" placeholder="https://mstr.cvshealth.com/MicroStrategyLibrary"/>
+              <span class="hint">Base URL of the MicroStrategy Library web app</span>
+            </div>
+            <div class="grid-3">
+              <div class="field" style="grid-column:span 2"><label for="c-iserver">Intelligence Server <span class="req">*</span></label><input class="inp mono" id="c-iserver" placeholder="mstr-is-prod-01.cvshealth.com"/></div>
+              <div class="field"><label for="c-port">Port</label><input class="inp mono" id="c-port" type="number" value="34952"/></div>
+            </div>
+            <div class="field"><label for="c-project">Project Name <span class="req">*</span></label><input class="inp mono" id="c-project" placeholder="CVS_Enterprise_DW"/></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><i data-lucide="shield-check"></i><span class="sec-label">Authentication</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+            <div class="field" style="max-width:280px"><label for="c-auth">Auth mode</label>
+              <select class="inp" id="c-auth">
+                <option value="standard">Standard</option><option value="ldap">LDAP</option>
+                <option value="saml">SAML</option><option value="oauth">OAuth</option><option value="token">API Token</option>
+              </select>
+            </div>
+            <div class="grid-2">
+              <div class="field"><label for="c-user">Username</label><input class="inp mono" id="c-user" placeholder="c123456" autocomplete="off"/></div>
+              <div class="field"><label for="c-pass">Password</label>
+                <div style="display:flex;gap:6px">
+                  <input class="inp mono" id="c-pass" type="password" placeholder="••••••••••" autocomplete="off"/>
+                  <button class="btn" id="c-pass-eye" title="Show / hide password" aria-label="Show password"><i data-lucide="eye"></i></button>
+                </div>
+              </div>
+            </div>
+            <div class="field"><label for="c-token">API Token</label>
+              <div style="display:flex;gap:6px">
+                <input class="inp mono" id="c-token" type="password" placeholder="mstr_pat_••••••••••••••••" autocomplete="off"/>
+                <button class="btn" id="c-token-eye" title="Show / hide token" aria-label="Show token"><i data-lucide="eye"></i></button>
+              </div>
+              <span class="hint" id="c-auth-hint">Standard auth uses username + password.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><i data-lucide="settings-2"></i><span class="sec-label">Defaults</span></div>
+          <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+            <div class="grid-2">
+              <div class="field"><label for="c-dbi">Database Instance</label><input class="inp mono" id="c-dbi" placeholder="EDW_PROD_TD"/></div>
+              <div class="field"><label for="c-dsn">DSN</label><input class="inp mono" id="c-dsn" placeholder="TD_EDW_PROD"/></div>
+            </div>
+            <div class="grid-2">
+              <div class="field"><label for="c-folder">Default Report Folder</label><input class="inp mono" id="c-folder" value="/Public Objects/Reports"/></div>
+              <div class="field"><label for="c-template">Default Template</label>
+                <select class="inp" id="c-template"><option>Standard Grid</option><option>Cross-tab</option><option>Dashboard</option><option>Graph</option><option>Grid + Graph</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span class="hint" id="c-saved">Never saved</span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm btn-danger" id="c-reset"><i data-lucide="rotate-ccw"></i>Reset</button>
+            <button class="btn btn-sm" id="c-save"><i data-lucide="save"></i>Save Configuration<kbd class="kbd">⌘S</kbd></button>
+            <button class="btn btn-primary" id="c-test"><i data-lucide="zap"></i>Test Connection<kbd class="kbd">⌘↵</kbd></button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ===== AI ACTIVITY STREAM ===== -->
+    <aside class="stream" id="stream" aria-label="AI activity stream">
+      <div class="stream-head">
+        <span class="dot" id="st-dot"></span>
+        <span class="sec-label">AI Activity</span>
+        <span class="count-chip mono" id="st-count">0</span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="st-stop" disabled title="Abort run"><i data-lucide="square"></i>Abort</button>
+      </div>
+      <div class="stream-body" id="st-body" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="st-idle" id="st-idle">
+          <i data-lucide="activity"></i>
+          <p>
+            Idle. Actions stream here as they happen.<br/>
+            <kbd class="kbd lite">⌘K</kbd> commands · <kbd class="kbd lite">⌘↵</kbd> run · <kbd class="kbd lite">?</kbd> keys
+          </p>
+        </div>
+      </div>
+      <div class="stream-foot">
+        <span class="hint mono" id="st-elapsed">00:00.0</span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-sm" id="st-copy"><i data-lucide="clipboard"></i>Copy</button>
+        <button class="btn btn-ghost btn-sm" id="st-clear"><i data-lucide="eraser"></i>Clear<kbd class="kbd">⌘⇧K</kbd></button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== STATUS BAR ===== -->
+  <footer class="statusbar">
+    <button class="sb btn-like" id="sb-conn"><span class="dot off" id="conn-dot-3"></span><span id="conn-text-3">disconnected</span></button>
+    <div class="sb"><span>project</span><span class="v" id="sb-project">CVS_Enterprise_DW</span></div>
+    <div class="sb acc"><span>type</span><span class="v" id="sb-type">none</span></div>
+    <div class="sb" title="Selected prompts / filters"><span>sel</span><span class="v" id="sb-sel">0p 0f</span></div>
+    <div class="sb" id="sb-path-wrap" title="Click to copy output path"><span>out</span><span class="v" id="sb-path">—</span></div>
+    <div class="sb-spacer"></div>
+    <div class="sb" id="sb-run"><span class="v">ready</span></div>
+    <div class="sb-hints">
+      <span class="sb-hint"><kbd class="kbd">⌘K</kbd>commands</span>
+      <span class="sb-hint"><kbd class="kbd">⌘↵</kbd>run</span>
+      <span class="sb-hint"><kbd class="kbd">⌘B</kbd>stream</span>
+      <span class="sb-hint"><kbd class="kbd">?</kbd>keys</span>
+    </div>
+  </footer>
+</div>
+
+<!-- ===== COMMAND PALETTE ===== -->
+<div class="overlay" id="palette-overlay" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <div class="pal-input">
+      <i data-lucide="chevron-right" style="color:var(--acc-ink)"></i>
+      <input id="pal-q" placeholder="Type a command or search…" autocomplete="off" spellcheck="false" aria-label="Command search" aria-controls="pal-list" role="combobox" aria-expanded="true"/>
+      <span class="pal-scope mono" id="pal-scope">new-report</span>
+    </div>
+    <div class="pal-list" id="pal-list" role="listbox" aria-label="Commands"></div>
+    <div class="pal-foot">
+      <span class="g"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd>navigate</span>
+      <span class="g"><kbd class="kbd">↵</kbd>run</span>
+      <span class="g"><kbd class="kbd">esc</kbd>close</span>
+      <span class="spacer"></span>
+      <span id="pal-stat">0 results</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHORTCUT LEGEND ===== -->
+<div class="overlay" id="legend-overlay" hidden>
+  <div class="legend" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="legend-h">
+      <i data-lucide="keyboard" style="width:14px;height:14px;color:var(--acc-ink)"></i>
+      <span class="sec-label" style="font-size:11px">Keyboard Shortcuts</span>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost btn-sm" id="legend-close"><kbd class="kbd">esc</kbd>close</button>
+    </div>
+    <div class="legend-b" id="legend-body"></div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<span class="sr" id="live" aria-live="polite"></span>
+
+<script>
+(function(){
+"use strict";
+
+/* ==========================================================================
+   1. DOMAIN DATA — report types, prompts, filters, sub-options
+   ========================================================================== */
+const REPORT_TYPES = {
+  Status:{
+    label:"Status", desc:"Store / location status reporting",
+    prompts:["Date Range Prompt","Store Prompt","Region Prompt","Status Type Prompt"],
+    filters:["Date Filter","Geography Filter","Status Filter","Active/Inactive Filter"],
+    template:"Standard Grid", folder:"/Public Objects/Reports/Status"
+  },
+  Dispense:{
+    label:"Dispense", desc:"Pharmacy dispensing volume & mix",
+    prompts:["Date Range Prompt","Store Prompt","Region Prompt","Product Prompt","NDC Prompt"],
+    filters:["Date Filter","Geography Filter","Drug Class Filter","Payer Filter","Channel Filter"],
+    template:"Standard Grid", folder:"/Public Objects/Reports/Pharmacy/Dispense"
+  },
+  Demo:{
+    label:"Demo", desc:"Patient demographics",
+    prompts:["Date Range Prompt","Region Prompt","Age Group Prompt"],
+    filters:["Date Filter","Geography Filter","Gender Filter","Age Band Filter","Ethnicity Filter"],
+    template:"Cross-tab", folder:"/Public Objects/Reports/Demographics"
+  },
+  Combined:{
+    label:"Combined", desc:"Cross-domain executive rollup",
+    prompts:["Date Range Prompt","Store Prompt","Region Prompt","Product Prompt","Status Type Prompt"],
+    filters:["Date Filter","Geography Filter","Status Filter","Drug Class Filter","Payer Filter","Channel Filter"],
+    template:"Dashboard", folder:"/Public Objects/Reports/Combined"
+  },
+  Coram:{
+    label:"Coram", desc:"Home infusion & specialty therapy",
+    prompts:["Date Range Prompt","Branch Prompt","Therapy Prompt","Patient Prompt"],
+    filters:["Date Filter","Branch Filter","Therapy Type Filter","Referral Source Filter","Payer Filter"],
+    template:"Standard Grid", folder:"/Public Objects/Reports/Coram"
+  },
+  Inventory:{
+    label:"Inventory", desc:"Stock position & replenishment",
+    prompts:["Date Range Prompt","Store Prompt","Warehouse Prompt","Product Prompt"],
+    filters:["Date Filter","Geography Filter","Stock Level Filter","Supplier Filter","Category Filter"],
+    template:"Standard Grid", folder:"/Public Objects/Reports/Inventory"
+  },
+  Financial:{
+    label:"Financial", desc:"P&L, cost center & GL reporting",
+    prompts:["Date Range Prompt","Region Prompt","Cost Center Prompt","GL Account Prompt"],
+    filters:["Date Filter","Geography Filter","Department Filter","Expense Type Filter","Revenue Filter"],
+    template:"Cross-tab", folder:"/Public Objects/Reports/Financial"
+  },
+  Clinical:{
+    label:"Clinical", desc:"Immunization, MTM & outcomes",
+    prompts:["Date Range Prompt","Store Prompt","Program Prompt","Patient Prompt"],
+    filters:["Date Filter","Geography Filter","Program Filter","Immunization Filter","MTM Filter","Outcome Filter"],
+    template:"Dashboard", folder:"/Public Objects/Reports/Clinical"
+  },
+  Custom:{
+    label:"Custom", desc:"Blank slate — bring your own objects",
+    prompts:["Date Range Prompt","Custom Prompt 1","Custom Prompt 2","Custom Prompt 3"],
+    filters:["Date Filter","Custom Filter 1","Custom Filter 2","Custom Filter 3"],
+    template:"Standard Grid", folder:"/Public Objects/Reports/Custom"
+  }
+};
+
+const SUB = {
+  /* -- prompts -- */
+  "Date Range Prompt":["Yesterday Start/End","Last 7 Days","Last 14 Days","Last 30 Days","Weekly (Mon–Sun)","Bi-Weekly","Monthly Start/End","Quarterly Start/End","MTD","QTD","YTD","Rolling 30 Days","Rolling 60 Days","Rolling 90 Days","Custom Range"],
+  "Store Prompt":["Single Store","Multi-Store","Store Range","By District","By Region","All Stores"],
+  "Region Prompt":["Northeast","Southeast","Midwest","Southwest","West","By Division","Multi-Region Select","All Regions"],
+  "Status Type Prompt":["Active","Inactive","Pending Open","Suspended","Closed","Under Remodel","All Statuses"],
+  "Product Prompt":["Single Product","By GPI","By Brand Name","By Generic Name","Product Group","Top 100 Products","All Products"],
+  "NDC Prompt":["Single NDC","NDC List Upload","By Labeler Code","By Package Size","By Strength","Wildcard Search"],
+  "Age Group Prompt":["0–17","18–34","35–49","50–64","65–79","80+","Custom Age Band","All Ages"],
+  "Branch Prompt":["Single Branch","Multi-Branch","By Market","By Region","Branch Range","All Branches"],
+  "Therapy Prompt":["Infusion","Enteral Nutrition","TPN","Anti-Infective","Immunoglobulin","Specialty Injectable","All Therapies"],
+  "Patient Prompt":["Single Patient ID","Patient List Upload","By Cohort","New Patients Only","Active Patients","Discharged","All Patients"],
+  "Warehouse Prompt":["Single DC","By Region DC","Forward Pick","Bulk Storage","Returns Center","All Warehouses"],
+  "Cost Center Prompt":["Single Cost Center","By Department","By Business Unit","Roll-up Hierarchy","All Cost Centers"],
+  "GL Account Prompt":["Single Account","Account Range","By Account Type","Revenue Accounts","Expense Accounts","All Accounts"],
+  "Program Prompt":["Immunization","MTM","Adherence","Diabetes Care","Smoking Cessation","Point of Care Testing","All Programs"],
+  "Custom Prompt 1":["Free Text Entry","Value List","Numeric Range","Date Element","Object Prompt","Hierarchy Qualification"],
+  "Custom Prompt 2":["Free Text Entry","Value List","Numeric Range","Date Element","Object Prompt","Hierarchy Qualification"],
+  "Custom Prompt 3":["Free Text Entry","Value List","Numeric Range","Date Element","Object Prompt","Hierarchy Qualification"],
+
+  /* -- filters -- */
+  "Date Filter":["Yesterday","Last 7 Days","Last 14 Days","Last 30 Days","Current Week","Current Month","Current Quarter","Previous Week","Previous Month","Previous Quarter","MTD","QTD","YTD","Rolling 30","Rolling 60","Rolling 90","Custom"],
+  "Geography Filter":["State","City","Zip Code","Region","District","Area","Market","Division"],
+  "Status Filter":["Active","Inactive","Pending Open","Suspended","Closed","Temporarily Closed","Exclude Test Stores"],
+  "Active/Inactive Filter":["Active Only","Inactive Only","Both","Active as of Date","Recently Deactivated (30d)"],
+  "Drug Class Filter":["By GPI Class","By Therapeutic Category","Brand Only","Generic Only","Specialty","Controlled Substance","OTC"],
+  "Payer Filter":["Commercial","Medicare","Medicaid","Cash/Self-Pay","Workers Comp","340B","All Payers"],
+  "Channel Filter":["Retail","Mail Order","Specialty","Long-Term Care","Infusion","Digital/Omnichannel","All Channels"],
+  "Gender Filter":["Male","Female","Non-Binary","Unknown / Not Specified","All"],
+  "Age Band Filter":["Pediatric (0–17)","Adult (18–64)","Senior (65+)","5-Year Bands","10-Year Bands","Custom Band"],
+  "Ethnicity Filter":["Hispanic / Latino","Not Hispanic / Latino","By Race Category","Unknown","Aggregate Only","All"],
+  "Branch Filter":["Single Branch","Branch Group","By Market","By State","Exclude Closed Branches","All Branches"],
+  "Therapy Type Filter":["Infusion","Enteral","TPN","Anti-Infective","IVIG","Specialty Injectable","All Therapy Types"],
+  "Referral Source Filter":["Hospital Discharge","Physician Office","Health Plan","Case Manager","Self-Referral","Internal Transfer","All Sources"],
+  "Stock Level Filter":["In Stock","Low Stock","Out of Stock","Overstock","Below Reorder Point","Expiring < 90 Days","All Levels"],
+  "Supplier Filter":["Primary Wholesaler","Secondary Wholesaler","Direct Manufacturer","Specialty Distributor","By Supplier ID","All Suppliers"],
+  "Category Filter":["Rx","OTC","Front Store","Consumables","Durable Medical Equipment","Seasonal","All Categories"],
+  "Department Filter":["Pharmacy Ops","Retail Ops","Clinical Services","Supply Chain","Corporate","IT","Finance","All Departments"],
+  "Expense Type Filter":["Labor","COGS","Occupancy","Marketing","Depreciation","Shrink","Other Operating","All Expense Types"],
+  "Revenue Filter":["Rx Revenue","Front Store Revenue","Specialty Revenue","Services Revenue","Net vs Gross","All Revenue"],
+  "Program Filter":["Immunization","MTM","Adherence","Diabetes Care","Smoking Cessation","POC Testing","All Programs"],
+  "Immunization Filter":["Influenza","COVID-19","Shingles","Pneumococcal","RSV","Tdap","Travel Vaccines","All Vaccines"],
+  "MTM Filter":["CMR Completed","TMR Completed","Eligible Not Enrolled","Enrolled","Opt-Out","All MTM"],
+  "Outcome Filter":["Adherence Improved","Gap Closed","Intervention Accepted","Intervention Declined","No Change","All Outcomes"],
+  "Custom Filter 1":["Attribute Qualification","Metric Qualification","Set Qualification","Shortcut to Filter","Advanced Expression","Prompted Qualification"],
+  "Custom Filter 2":["Attribute Qualification","Metric Qualification","Set Qualification","Shortcut to Filter","Advanced Expression","Prompted Qualification"],
+  "Custom Filter 3":["Attribute Qualification","Metric Qualification","Set Qualification","Shortcut to Filter","Advanced Expression","Prompted Qualification"]
+};
+
+const TEMPLATES = ["Standard Grid","Cross-tab","Dashboard","Graph","Grid + Graph"];
+
+/* ==========================================================================
+   2. STATE
+   ========================================================================== */
+const state = {
+  page:"new-report",
+  mode:"brd",
+  brdSource:"local",
+  files:{brd:null,mapping:null,excel:null},
+  cfg:{ name:"", type:"", template:"", folder:"" },
+  prompts:new Set(),
+  filters:new Set(),
+  subs:{},                 // "Date Filter" -> Set(["YTD"])
+  expanded:new Set(),
+  cursor:{prompts:0,filters:0},
+  configHost:"mapping",    // where the shared editor currently lives
+  parsed:null,             // parsed BRD config awaiting approval
+  mapping:null,            // generated mapping rows
+  running:false,
+  runToken:0,
+  builds:0,
+  conn:{status:"off", saved:false},
+  sqlValid:false
+};
+
+/* ==========================================================================
+   3. UTILITIES
+   ========================================================================== */
+const $  = (s,r)=> (r||document).querySelector(s);
+const $$ = (s,r)=> Array.prototype.slice.call((r||document).querySelectorAll(s));
+const IS_MAC = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+const MOD = IS_MAC ? "⌘" : "Ctrl";
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function sleep(ms){ return new Promise(r=>setTimeout(r, REDUCED ? Math.min(ms,90) : ms)); }
+function rand(a,b){ return Math.round(a + Math.random()*(b-a)); }
+function bytes(n){
+  if(n < 1024) return n + " B";
+  if(n < 1048576) return (n/1024).toFixed(1) + " KB";
+  return (n/1048576).toFixed(2) + " MB";
+}
+function clockNow(){
+  const d = new Date(), p = (v,n)=>String(v).padStart(n||2,"0");
+  return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())+"."+p(d.getMilliseconds(),3).slice(0,2);
+}
+function slug(s){ return String(s).trim().replace(/[^\w]+/g,"_").replace(/^_|_$/g,""); }
+function icons(){ if(window.lucide && window.lucide.createIcons) { try{ window.lucide.createIcons(); }catch(e){} } }
+function announce(msg){ const l=$("#live"); if(l) l.textContent = msg; }
+
+/* toasts ------------------------------------------------------------------ */
+function toast(msg, kind, key){
+  const el = document.createElement("div");
+  el.className = "toast " + (kind||"");
+  const ico = kind==="ok" ? "check" : kind==="err" ? "alert-triangle" : "info";
+  el.innerHTML = '<i data-lucide="'+ico+'"></i><span class="tx">'+esc(msg)+'</span>'+(key?'<kbd class="kbd">'+esc(key)+'</kbd>':'');
+  $("#toasts").appendChild(el);
+  icons();
+  announce(msg);
+  setTimeout(()=>{ el.style.transition="opacity .18s, transform .18s"; el.style.opacity="0"; el.style.transform="translateX(8px)";
+    setTimeout(()=>el.remove(), 200); }, 2600);
+}
+
+/* clipboard with a non-async fallback so file:// always works -------------- */
+function copyText(text, label){
+  const done = ()=> toast((label||"Copied")+" to clipboard","ok");
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done, ()=>legacyCopy(text,done));
+  } else legacyCopy(text, done);
+}
+function legacyCopy(text, done){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); done(); }catch(e){ toast("Copy blocked by browser","err"); }
+  ta.remove();
+}
+
+/* ==========================================================================
+   4. SHARED CONFIG EDITOR  (one instance, relocated between hosts)
+   ========================================================================== */
+const configEl = document.createElement("div");
+configEl.className = "panel";
+configEl.id = "config-editor";
+configEl.innerHTML = [
+ '<div class="panel-head">',
+   '<i data-lucide="sliders-horizontal"></i><span class="sec-label" id="cfg-title">Report Configuration</span>',
+   '<div class="spacer"></div>',
+   '<span class="hint" id="cfg-note"></span>',
+ '</div>',
+ '<div class="panel-body" style="display:flex;flex-direction:column;gap:12px">',
+   '<div class="grid-2">',
+     '<div class="field"><label for="cfg-name">Report name <span class="req">*</span></label>',
+       '<input class="inp" id="cfg-name" placeholder="Rx_Dispense_Daily_Volume"/></div>',
+     '<div class="field"><label for="cfg-type">Report type <span class="req">*</span></label>',
+       '<select class="inp" id="cfg-type"></select>',
+       '<span class="hint" id="cfg-type-desc">Pick a type to load its prompts &amp; filters</span></div>',
+   '</div>',
+   '<div class="grid-2" style="align-items:start">',
+     /* prompts */
+     '<div class="picker">',
+       '<div class="picker-head"><span class="sec-label">Prompts</span>',
+         '<span class="count-chip mono" id="cfg-pcount">0</span><div class="spacer"></div>',
+         '<button class="btn btn-ghost btn-sm" data-bulk="prompts-all">All</button>',
+         '<button class="btn btn-ghost btn-sm" data-bulk="prompts-none">None</button></div>',
+       '<div class="picker-list" id="list-prompts" role="listbox" aria-multiselectable="true" aria-label="Prompts" tabindex="0"></div>',
+     '</div>',
+     /* filters */
+     '<div class="picker">',
+       '<div class="picker-head"><span class="sec-label">Filters</span>',
+         '<span class="count-chip mono" id="cfg-fcount">0</span><div class="spacer"></div>',
+         '<button class="btn btn-ghost btn-sm" data-bulk="filters-all">All</button>',
+         '<button class="btn btn-ghost btn-sm" data-bulk="filters-none">None</button></div>',
+       '<div class="picker-list" id="list-filters" role="listbox" aria-multiselectable="true" aria-label="Filters" tabindex="0"></div>',
+     '</div>',
+   '</div>',
+   '<div class="note"><i data-lucide="keyboard"></i><div>Focus a list and use <kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> to move, <kbd class="kbd">space</kbd> to toggle, <kbd class="kbd">→</kbd>/<kbd class="kbd">←</kbd> to expand sub-options. Selected items feed straight into the build.</div></div>',
+   '<div class="grid-2">',
+     '<div class="field"><label for="cfg-template">Template</label><select class="inp" id="cfg-template"></select></div>',
+     '<div class="field"><label for="cfg-folder">Output folder</label>',
+       '<div style="display:flex;gap:6px"><input class="inp mono" id="cfg-folder" placeholder="/Public Objects/Reports"/>',
+       '<button class="btn" id="cfg-copy-folder" title="Copy path"><i data-lucide="clipboard"></i></button></div></div>',
+   '</div>',
+ '</div>',
+ '<div class="panel-foot" id="cfg-foot"></div>'
+].join("");
+
+function mountConfig(host){
+  state.configHost = host;
+  const slot = host === "brd" ? $("#brd-config-slot") : $("#map-config-slot");
+  slot.appendChild(configEl);
+  $("#cfg-title").textContent = host === "brd" ? "Review Parsed Configuration" : "Report Configuration";
+  $("#cfg-note").textContent  = host === "brd" ? "AI-parsed — edit anything before approving" : "Manual configuration";
+  renderFoot();
+  icons();
+}
+
+function renderFoot(){
+  const foot = $("#cfg-foot");
+  const ready = !!(state.cfg.type && state.cfg.name.trim());
+  if(state.configHost === "brd"){
+    foot.innerHTML =
+      '<span class="hint" id="cfg-status">'+(ready?'Ready to approve':'Report name and type required')+'</span>'+
+      '<div class="spacer"></div>'+
+      '<button class="btn btn-sm btn-danger" id="cfg-cancel"><i data-lucide="x"></i>Discard</button>'+
+      '<button class="btn btn-primary" id="cfg-build" '+(ready?'':'disabled')+'><i data-lucide="check"></i>Approve &amp; Build<kbd class="kbd">'+MOD+'↵</kbd></button>';
+    $("#cfg-cancel").addEventListener("click", ()=>{
+      state.parsed = null; configEl.remove(); pushRow("Parsed configuration discarded.","warn"); toast("Configuration discarded");
+    });
+  } else {
+    const hasFile = !!state.files.mapping;
+    foot.innerHTML =
+      '<span class="hint" id="cfg-status">'+(hasFile? (ready?'Ready to build':'Report name and type required') : 'Attach a mapping document first')+'</span>'+
+      '<div class="spacer"></div>'+
+      '<button class="btn btn-sm" id="cfg-reset"><i data-lucide="rotate-ccw"></i>Reset</button>'+
+      '<button class="btn btn-primary" id="cfg-build" '+((ready&&hasFile)?'':'disabled')+'><i data-lucide="hammer"></i>Build Report<kbd class="kbd">'+MOD+'↵</kbd></button>';
+    $("#cfg-reset").addEventListener("click", ()=>{ resetConfig(); toast("Configuration reset"); });
+  }
+  const b = $("#cfg-build");
+  if(b) b.addEventListener("click", ()=> buildReport(state.configHost === "brd" ? "approved" : "mapping"));
+  icons();
+}
+
+function resetConfig(){
+  state.cfg = {name:"",type:"",template:"",folder:""};
+  state.prompts.clear(); state.filters.clear(); state.subs = {}; state.expanded.clear();
+  syncConfigInputs(); renderPicker("prompts"); renderPicker("filters"); renderFoot(); updateMeta();
+}
+
+/* populate selects once */
+(function initSelects(){
+  const t = $("#cfg-type", configEl), tpl = $("#cfg-template", configEl);
+  t.innerHTML = '<option value="">— Select report type —</option>' +
+    Object.keys(REPORT_TYPES).map(k=>'<option value="'+k+'">'+REPORT_TYPES[k].label+'</option>').join("");
+  tpl.innerHTML = TEMPLATES.map(x=>'<option>'+x+'</option>').join("");
+})();
+
+function syncConfigInputs(){
+  $("#cfg-name", configEl).value = state.cfg.name;
+  $("#cfg-type", configEl).value = state.cfg.type;
+  $("#cfg-template", configEl).value = state.cfg.template || TEMPLATES[0];
+  $("#cfg-folder", configEl).value = state.cfg.folder;
+  const d = REPORT_TYPES[state.cfg.type];
+  $("#cfg-type-desc", configEl).textContent = d ? d.desc + " · " + d.prompts.length + " prompts / " + d.filters.length + " filters"
+                                               : "Pick a type to load its prompts & filters";
+}
+
+configEl.addEventListener("input", e=>{
+  if(e.target.id === "cfg-name"){ state.cfg.name = e.target.value; renderFoot(); }
+  if(e.target.id === "cfg-folder"){ state.cfg.folder = e.target.value; updateMeta(); }
+});
+configEl.addEventListener("change", e=>{
+  if(e.target.id === "cfg-type") setReportType(e.target.value, true);
+  if(e.target.id === "cfg-template"){ state.cfg.template = e.target.value; }
+});
+configEl.addEventListener("click", e=>{
+  const bulk = e.target.closest("[data-bulk]");
+  if(bulk){
+    const [kind, op] = bulk.getAttribute("data-bulk").split("-");
+    const src = state.cfg.type ? REPORT_TYPES[state.cfg.type][kind] : [];
+    if(op === "all"){ src.forEach(x=>{ state[kind].add(x); state.expanded.add(x); }); }
+    else { state[kind].clear(); src.forEach(x=>state.expanded.delete(x)); }
+    renderPicker(kind); updateMeta(); return;
+  }
+  if(e.target.closest("#cfg-copy-folder")){
+    copyText($("#cfg-folder", configEl).value || "", "Folder path");
+  }
+});
+
+/* -- report type change: repopulate everything ----------------------------- */
+function setReportType(type, keepName){
+  state.cfg.type = type;
+  state.prompts.clear(); state.filters.clear(); state.subs = {}; state.expanded.clear();
+  state.cursor.prompts = 0; state.cursor.filters = 0;
+  const d = REPORT_TYPES[type];
+  if(d){
+    state.cfg.template = d.template;
+    state.cfg.folder = d.folder;
+    if(!keepName || !state.cfg.name) state.cfg.name = slug(d.label) + "_Report";
+  } else {
+    state.cfg.template = ""; state.cfg.folder = "";
+  }
+  syncConfigInputs(); renderPicker("prompts"); renderPicker("filters"); renderFoot(); updateMeta();
+  if(d) pushRow("Report type set to <em>"+esc(d.label)+"</em> — "+d.prompts.length+" prompts, "+d.filters.length+" filters available.","done");
+}
+
+/* ==========================================================================
+   5. PICKER — keyboard-driven multi-select with expanding sub-options
+   ========================================================================== */
+/* flat navigable model: parents plus the sub-options of expanded parents */
+function pickerModel(kind){
+  const avail = state.cfg.type ? REPORT_TYPES[state.cfg.type][kind] : [];
+  const rows = [];
+  avail.forEach(name=>{
+    rows.push({t:"p", name:name});
+    if(state.expanded.has(name)) (SUB[name]||[]).forEach(v=> rows.push({t:"s", name:name, val:v}));
+  });
+  return rows;
+}
+
+function renderPicker(kind){
+  const list = $("#list-"+kind, configEl);
+  if(!list) return;
+  const rows = pickerModel(kind);
+  if(!rows.length){
+    list.innerHTML = '<div class="picker-empty">no report type selected</div>';
+    $("#cfg-"+(kind==="prompts"?"p":"f")+"count", configEl).textContent = "0";
+    return;
+  }
+  if(state.cursor[kind] >= rows.length) state.cursor[kind] = rows.length-1;
+  if(state.cursor[kind] < 0) state.cursor[kind] = 0;
+
+  let html = "", subBuf = "", lastParent = null;
+  rows.forEach((r,i)=>{
+    const cur = i === state.cursor[kind] ? " cursor" : "";
+    if(r.t === "p"){
+      if(subBuf){ html += '<div class="subs">'+subBuf+'</div>'; subBuf=""; }
+      const on = state[kind].has(r.name);
+      const picks = state.subs[r.name] ? state.subs[r.name].size : 0;
+      const total = (SUB[r.name]||[]).length;
+      html += '<div class="opt'+(on?" on":"")+(state.expanded.has(r.name)?" exp":"")+cur+'" role="option" aria-selected="'+on+'" data-i="'+i+'" data-kind="'+kind+'" data-name="'+esc(r.name)+'">'+
+              '<span class="box mono">'+(on?"[x]":"[ ]")+'</span>'+
+              '<span class="nm">'+esc(r.name)+'</span><span class="grow"></span>'+
+              '<span class="tag">'+(on? (picks+"/"+total) : total)+'</span>'+
+              '<span class="chev" data-chev="1" title="Expand sub-options"><i data-lucide="chevron-right"></i></span></div>';
+      lastParent = r.name;
+    } else {
+      const on = state.subs[r.name] && state.subs[r.name].has(r.val);
+      subBuf += '<button class="sub'+(on?" on":"")+cur+'" type="button" tabindex="-1" data-i="'+i+'" data-kind="'+kind+
+                '" data-name="'+esc(r.name)+'" data-val="'+esc(r.val)+'" aria-pressed="'+(!!on)+'">'+esc(r.val)+'</button>';
+    }
+  });
+  if(subBuf) html += '<div class="subs">'+subBuf+'</div>';
+  list.innerHTML = html;
+
+  $("#cfg-"+(kind==="prompts"?"p":"f")+"count", configEl).textContent = String(state[kind].size);
+  icons();
+}
+
+function toggleParent(kind, name, silent){
+  const set = state[kind];
+  if(set.has(name)){
+    set.delete(name); state.expanded.delete(name); delete state.subs[name];
+    if(!silent) pushRow("Removed "+(kind==="prompts"?"prompt":"filter")+" <em>"+esc(name)+"</em>.","warn");
+  } else {
+    set.add(name); state.expanded.add(name);
+    const opts = SUB[name]||[];
+    if(opts.length){ state.subs[name] = new Set([opts[0]]); }   // sensible default
+    if(!silent) pushRow("Added "+(kind==="prompts"?"prompt":"filter")+" <em>"+esc(name)+"</em>"+(opts.length?" — default <em>"+esc(opts[0])+"</em>":"")+".","done");
+  }
+  renderPicker(kind); renderFoot(); updateMeta();
+}
+
+function toggleSub(kind, name, val){
+  if(!state[kind].has(name)) state[kind].add(name);
+  if(!state.subs[name]) state.subs[name] = new Set();
+  const s = state.subs[name];
+  s.has(val) ? s.delete(val) : s.add(val);
+  renderPicker(kind); updateMeta();
+}
+
+function focusCursor(kind){
+  const list = $("#list-"+kind, configEl);
+  const el = list && list.querySelector('[data-i="'+state.cursor[kind]+'"]');
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+}
+
+function pickerKeys(e, kind){
+  const rows = pickerModel(kind);
+  if(!rows.length) return;
+  const k = e.key;
+  let handled = true;
+  const cur = ()=> rows[state.cursor[kind]];
+  if(k === "ArrowDown" || (k === "j" && !e.metaKey && !e.ctrlKey)){ state.cursor[kind] = Math.min(rows.length-1, state.cursor[kind]+1); renderPicker(kind); focusCursor(kind); }
+  else if(k === "ArrowUp" || (k === "k" && !e.metaKey && !e.ctrlKey)){ state.cursor[kind] = Math.max(0, state.cursor[kind]-1); renderPicker(kind); focusCursor(kind); }
+  else if(k === "Home"){ state.cursor[kind]=0; renderPicker(kind); focusCursor(kind); }
+  else if(k === "End"){ state.cursor[kind]=rows.length-1; renderPicker(kind); focusCursor(kind); }
+  else if(k === " " || k === "Enter"){
+    const r = cur();
+    if(r.t === "p") toggleParent(kind, r.name); else toggleSub(kind, r.name, r.val);
+    focusCursor(kind);
+  }
+  else if(k === "ArrowRight"){
+    const r = cur();
+    if(r.t === "p" && !state.expanded.has(r.name)){ state.expanded.add(r.name); renderPicker(kind); }
+    else { state.cursor[kind] = Math.min(rows.length-1, state.cursor[kind]+1); renderPicker(kind); }
+    focusCursor(kind);
+  }
+  else if(k === "ArrowLeft"){
+    const r = cur();
+    if(r.t === "s"){
+      const pi = rows.findIndex(x=> x.t==="p" && x.name === r.name);
+      state.expanded.delete(r.name); state.cursor[kind] = Math.max(0,pi); renderPicker(kind);
+    } else if(state.expanded.has(r.name)){ state.expanded.delete(r.name); renderPicker(kind); }
+    focusCursor(kind);
+  }
+  else handled = false;
+  if(handled){ e.preventDefault(); e.stopPropagation(); }
+}
+
+["prompts","filters"].forEach(kind=>{
+  const list = $("#list-"+kind, configEl);
+  list.addEventListener("keydown", e=> pickerKeys(e, kind));
+  list.addEventListener("mousedown", e=>{
+    const sub = e.target.closest(".sub");
+    const opt = e.target.closest(".opt");
+    if(sub){
+      e.preventDefault();
+      state.cursor[kind] = +sub.getAttribute("data-i");
+      toggleSub(kind, sub.getAttribute("data-name"), sub.getAttribute("data-val"));
+      list.focus();
+    } else if(opt){
+      e.preventDefault();
+      state.cursor[kind] = +opt.getAttribute("data-i");
+      const name = opt.getAttribute("data-name");
+      if(e.target.closest("[data-chev]")){
+        state.expanded.has(name) ? state.expanded.delete(name) : state.expanded.add(name);
+        renderPicker(kind);
+      } else toggleParent(kind, name);
+      list.focus();
+    }
+  });
+});
+
+/* ==========================================================================
+   6. AI ACTIVITY STREAM
+   ========================================================================== */
+const stream = {
+  body:$("#st-body"), steps:0, t0:0, timer:null, group:null, typingEl:null
+};
+
+function streamReady(){
+  const idle = $("#st-idle");
+  if(idle) idle.remove();
+}
+
+function newRun(title){
+  streamReady();
+  const g = document.createElement("div");
+  g.className = "st-run";
+  g.innerHTML = '<div class="st-run-head active"><i data-lucide="chevron-right" style="width:11px;height:11px"></i>'+
+                '<b>'+esc(title)+'</b><div class="spacer"></div><span class="rt mono">running</span></div>'+
+                '<div class="st-rows"></div>';
+  stream.body.appendChild(g);
+  stream.group = g;
+  icons(); scrollStream();
+  return g;
+}
+function endRun(status, note){
+  if(!stream.group) return;
+  const head = stream.group.querySelector(".st-run-head");
+  head.className = "st-run-head " + (status==="done" ? "done" : status==="stop" ? "stop" : "");
+  stream.group.querySelector(".rt").textContent = note || status;
+}
+function rowsHost(){
+  if(stream.group) return stream.group.querySelector(".st-rows");
+  streamReady();
+  return stream.body;
+}
+function scrollStream(){ stream.body.scrollTop = stream.body.scrollHeight; }
+
+const MARKS = {run:"▍", done:"✓", warn:"!", err:"✕", info:"·"};
+
+function pushRow(html, status, sub){
+  streamReady();
+  const row = document.createElement("div");
+  row.className = "st-row " + (status||"info");
+  row.innerHTML = '<span class="ts mono">'+clockNow()+'</span>'+
+                  '<span class="ico"><span class="mk">'+(MARKS[status||"info"]||"·")+'</span></span>'+
+                  '<span class="txt">'+html+'</span>'+
+                  '<span class="dur mono"></span>';
+  rowsHost().appendChild(row);
+  if(sub){
+    const s = document.createElement("div");
+    s.className = "st-sub"; s.innerHTML = sub;
+    rowsHost().appendChild(s);
+  }
+  stream.steps++; $("#st-count").textContent = String(stream.steps);
+  scrollStream();
+  return row;
+}
+
+function showTyping(){
+  hideTyping();
+  const t = document.createElement("div");
+  t.className = "typing"; t.innerHTML = "<i></i><i></i><i></i>";
+  rowsHost().appendChild(t); stream.typingEl = t; scrollStream();
+}
+function hideTyping(){ if(stream.typingEl){ stream.typingEl.remove(); stream.typingEl = null; } }
+
+function startClock(){
+  stream.t0 = Date.now();
+  $("#st-dot").className = "dot busy";
+  $("#sb-run").innerHTML = '<span class="v" style="color:var(--acc-ink)">running…</span>';
+  $("#st-stop").disabled = false;
+  clearInterval(stream.timer);
+  stream.timer = setInterval(()=>{
+    const s = (Date.now()-stream.t0)/1000;
+    $("#st-elapsed").textContent = String(Math.floor(s/60)).padStart(2,"0")+":"+(s%60).toFixed(1).padStart(4,"0");
+  }, 100);
+}
+function stopClock(ok){
+  clearInterval(stream.timer);
+  $("#st-dot").className = "dot " + (ok===false ? "off" : "on");
+  $("#sb-run").innerHTML = '<span class="v">'+(ok===false?"aborted":"ready")+'</span>';
+  $("#st-stop").disabled = true;
+}
+
+/* step runner: typing indicator → pending row → resolved row --------------- */
+async function step(text, opts){
+  opts = opts || {};
+  const token = state.runToken;
+  showTyping();
+  await sleep(opts.think != null ? opts.think : rand(240,520));
+  if(token !== state.runToken) throw new Error("aborted");
+  hideTyping();
+  const row = pushRow(text, "run");
+  const t0 = Date.now();
+  await sleep(opts.work != null ? opts.work : rand(330,780));
+  if(token !== state.runToken){ row.className = "st-row warn"; row.querySelector(".mk").textContent = MARKS.warn; throw new Error("aborted"); }
+  row.className = "st-row " + (opts.status || "done");
+  row.querySelector(".mk").textContent = MARKS[opts.status || "done"];
+  row.querySelector(".dur").textContent = (Date.now()-t0) + "ms";
+  if(opts.sub){
+    const s = document.createElement("div"); s.className = "st-sub"; s.innerHTML = opts.sub;
+    row.insertAdjacentElement("afterend", s);
+  }
+  scrollStream();
+  return row;
+}
+
+function card(html, cls){
+  const c = document.createElement("div");
+  c.className = "card " + (cls||"");
+  c.innerHTML = html;
+  rowsHost().appendChild(c);
+  icons(); scrollStream();
+  return c;
+}
+function kv(k,v,acc){ return '<div class="kv"><span class="k">'+esc(k)+'</span><span class="v'+(acc?" acc":"")+'">'+v+'</span></div>'; }
+
+function beginRun(title){
+  if(state.running){ toast("A run is already in progress","err"); return false; }
+  state.running = true; state.runToken++;
+  newRun(title); startClock();
+  return true;
+}
+function finishRun(status, note){
+  state.running = false; hideTyping(); endRun(status, note); stopClock(status !== "stop");
+}
+
+$("#st-stop").addEventListener("click", ()=>{
+  if(!state.running) return;
+  state.runToken++; state.running = false;
+  hideTyping(); pushRow("Run aborted by operator.","warn"); endRun("stop","aborted"); stopClock(false);
+  toast("Run aborted");
+});
+$("#st-clear").addEventListener("click", clearStream);
+function clearStream(){
+  stream.body.innerHTML = '<div class="st-idle" id="st-idle"><i data-lucide="activity"></i><p>Idle. Actions stream here as they happen.<br/>'+
+    '<kbd class="kbd lite">'+MOD+'K</kbd> commands · <kbd class="kbd lite">'+MOD+'↵</kbd> run · <kbd class="kbd lite">?</kbd> keys</p></div>';
+  stream.group = null; stream.steps = 0; $("#st-count").textContent = "0"; $("#st-elapsed").textContent = "00:00.0";
+  icons();
+}
+$("#st-copy").addEventListener("click", ()=>{
+  const lines = $$(".st-row", stream.body).map(r=>
+    r.querySelector(".ts").textContent + "  " + r.querySelector(".mk").textContent + "  " + r.querySelector(".txt").textContent);
+  if(!lines.length){ toast("Nothing to copy","err"); return; }
+  copyText(lines.join("\n"), lines.length + " lines");
+});
+
+/* ==========================================================================
+   7. FILE HANDLING
+   ========================================================================== */
+function wireDrop(dropId, inputId, slotId, key, onSet){
+  const drop = $("#"+dropId), input = $("#"+inputId), slot = $("#"+slotId);
+  drop.addEventListener("click", ()=> input.click());
+  input.addEventListener("change", ()=>{ if(input.files[0]) setFile(input.files[0]); });
+  ["dragenter","dragover"].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e=>{
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) setFile(f);
+  });
+
+  function setFile(f){
+    state.files[key] = {name:f.name, size:f.size, type:f.type||"", synthetic:false};
+    paint(); onSet && onSet();
+    pushRow("Attached <em>"+esc(f.name)+"</em> <span class=\"dim\">("+bytes(f.size)+")</span>.","done");
+  }
+  function paint(){
+    const f = state.files[key];
+    if(!f){ slot.innerHTML = ""; drop.style.display=""; return; }
+    drop.style.display = "none";
+    const ext = (f.name.split(".").pop()||"").toUpperCase();
+    slot.innerHTML =
+      '<div class="file-chip"><span class="fi"><i data-lucide="file-check-2"></i></span>'+
+      '<span class="grow"><span class="fn">'+esc(f.name)+'</span><span class="fm">'+ext+' · '+bytes(f.size)+
+      (f.synthetic?' · generated':'')+' · staged</span></span>'+
+      '<button class="btn btn-sm" data-act="replace"><i data-lucide="repeat-2"></i>Replace</button>'+
+      '<button class="btn btn-sm btn-danger" data-act="remove" aria-label="Remove file"><i data-lucide="x"></i></button></div>';
+    slot.querySelector('[data-act="replace"]').addEventListener("click", ()=> input.click());
+    slot.querySelector('[data-act="remove"]').addEventListener("click", ()=>{
+      state.files[key] = null; input.value = ""; paint(); onSet && onSet();
+      pushRow("Detached document.","warn"); toast("File removed");
+    });
+    icons();
+  }
+  return {paint:paint, attach:function(name,size){
+    state.files[key] = {name:name,size:size,synthetic:true}; paint(); onSet && onSet();
+  }};
+}
+
+const brdFile = wireDrop("brd-drop","brd-input","brd-file","brd", ()=>{
+  const f = state.files.brd;
+  $("#brd-parse").disabled = !f;
+  $("#brd-clear").disabled = !f;
+  $("#brd-status").textContent = f ? "Ready to parse · " + f.name : "No document attached";
+});
+const mapFile = wireDrop("map-drop","map-input","map-file","mapping", ()=>{ renderFoot(); });
+const gmFile  = wireDrop("gm-drop","gm-input","gm-file","excel", ()=>{
+  const f = state.files.excel;
+  $("#gm-run").disabled = !f; $("#gm-clear").disabled = !f;
+  $("#gm-status").textContent = f ? "Ready · " + f.name : "No document attached";
+});
+
+$("#brd-clear").addEventListener("click", ()=>{
+  state.files.brd = null; $("#brd-input").value = ""; brdFile.paint();
+  $("#brd-parse").disabled = true; $("#brd-clear").disabled = true;
+  $("#brd-status").textContent = "No document attached"; toast("Cleared");
+});
+$("#gm-clear").addEventListener("click", ()=>{
+  state.files.excel = null; $("#gm-input").value = ""; gmFile.paint();
+  $("#gm-run").disabled = true; $("#gm-clear").disabled = true;
+  $("#gm-status").textContent = "No document attached"; $("#gm-result").hidden = true; toast("Cleared");
+});
+
+/* BRD source tabs */
+$$("#pane-brd .tabs button").forEach(b=> b.addEventListener("click", ()=> setSource(b.getAttribute("data-src"))));
+function setSource(src){
+  state.brdSource = src;
+  $$("#pane-brd .tabs button").forEach(b=> b.setAttribute("aria-selected", String(b.getAttribute("data-src")===src)));
+  ["local","sharepoint","database"].forEach(s=>{
+    const el = $("#src-"+s);
+    el.hidden = s !== src;
+    el.style.display = s === src ? (s==="local"?"block":"flex") : "none";
+  });
+}
+$("#sp-fetch").addEventListener("click", async ()=>{
+  const url = $("#sp-url").value.trim();
+  if(!url){ toast("Enter a SharePoint URL first","err"); $("#sp-url").focus(); return; }
+  if(!beginRun("SharePoint fetch")) return;
+  try{
+    await step("Authenticating to SharePoint with session SSO…", {work:520});
+    await step("Resolving document <em>"+esc(url.split("/").pop())+"</em>…");
+    await step("Downloading latest version…", {work:640});
+    const name = decodeURIComponent(url.split("/").pop()) || "SharePoint_BRD.xlsx";
+    brdFile.attach(name, rand(48000,320000));
+    setSource("local");
+    await step("Staged <em>"+esc(name)+"</em> for parsing.", {sub:"source: <span>sharepoint</span> · version: <span>"+esc($("#sp-ver").value)+"</span>"});
+    finishRun("done","fetched");
+    toast("Document fetched from SharePoint","ok");
+  }catch(e){ finishRun("stop","aborted"); }
+});
+$("#db-fetch").addEventListener("click", async ()=>{
+  const id = $("#db-id").value.trim();
+  if(!id){ toast("Enter a BRD identifier","err"); $("#db-id").focus(); return; }
+  if(!beginRun("Database pull")) return;
+  try{
+    await step("Opening connection to <em>"+esc($("#db-conn").value)+"</em>…", {work:480});
+    await step("Querying <em>"+esc($("#db-table").value)+"</em> for <em>"+esc(id)+"</em>…");
+    await step("Materialising BRD payload…", {work:560});
+    const name = id + "_BRD.xlsx";
+    brdFile.attach(name, rand(40000,190000));
+    setSource("local");
+    await step("Staged <em>"+esc(name)+"</em> for parsing.");
+    finishRun("done","pulled");
+    toast("BRD pulled from database","ok");
+  }catch(e){ finishRun("stop","aborted"); }
+});
+
+/* ==========================================================================
+   8. FLOW — BRD parse → approval card
+   ========================================================================== */
+const GUESS = ["Dispense","Status","Clinical","Inventory","Financial","Coram","Demo","Combined"];
+
+function guessType(filename){
+  const n = (filename||"").toLowerCase();
+  const hit = Object.keys(REPORT_TYPES).find(k=> n.indexOf(k.toLowerCase()) >= 0);
+  return hit || GUESS[Math.floor(Math.random()*GUESS.length)];
+}
+
+async function parseBRD(){
+  const f = state.files.brd;
+  if(!f){ toast("Attach a BRD first","err"); return; }
+  if(!beginRun("BRD parse · " + f.name)) return;
+  try{
+    const type = guessType(f.name);
+    const d = REPORT_TYPES[type];
+    const picks = d.prompts.slice(0, Math.max(2, d.prompts.length-1));
+    const fpicks = d.filters.slice(0, Math.max(2, d.filters.length-1));
+    const subsel = {};
+    picks.concat(fpicks).forEach(n=>{ const o = SUB[n]||[]; subsel[n] = o.length ? [o[0]] : []; });
+    if(subsel["Date Range Prompt"]) subsel["Date Range Prompt"] = ["Last 30 Days","MTD"];
+    if(subsel["Date Filter"]) subsel["Date Filter"] = ["Last 30 Days"];
+
+    await step("Reading <em>"+esc(f.name)+"</em> <span class=\"dim\">("+bytes(f.size)+")</span>…", {work:600});
+    await step("Detected structured requirements grid — 4 sheets, 128 rows.", {sub:"sheets: <span>Requirements, Objects, Filters, Sign-off</span>"});
+    await step("Classifying report intent from requirement language…", {work:820});
+    await step("Report type resolved to <em>"+d.label+"</em> <span class=\"dim\">(confidence 0.92)</span>.");
+    await step("Mapping requirement phrases to MSTR prompt objects…", {work:760,
+      sub:"matched <span>"+picks.length+"</span> of <span>"+d.prompts.length+"</span> available prompts"});
+    await step("Deriving filter qualifications…", {sub:"matched <span>"+fpicks.length+"</span> of <span>"+d.filters.length+"</span> available filters"});
+    await step("Resolving destination folder and template…", {work:420});
+    await step("Configuration assembled. <b>Awaiting your review.</b>", {status:"warn"});
+
+    const name = slug(f.name.replace(/\.[^.]+$/,"")).slice(0,44) || (d.label+"_Report");
+    state.parsed = {type:type, name:name, prompts:picks, filters:fpicks, subs:subsel, template:d.template, folder:d.folder, confidence:92};
+
+    card(
+      '<div class="card-h"><i data-lucide="git-pull-request-arrow" style="width:12px;height:12px;color:var(--acc-ink)"></i>'+
+      '<span class="sec-label">Approval Required</span><div class="spacer"></div>'+
+      '<span class="mono" style="font-size:9.5px;color:var(--fg-3)">conf 0.92</span>'+
+      '<span class="meter" style="max-width:44px"><i style="width:92%"></i></span></div>'+
+      '<div class="card-b">'+
+        kv("name", esc(name)) +
+        kv("type", esc(d.label), true) +
+        kv("template", esc(d.template)) +
+        kv("folder", esc(d.folder)) +
+        kv("prompts", picks.map(p=> esc(p)+" <span style=\"color:var(--fg-4)\">→ "+esc((subsel[p]||[]).join(", "))+"</span>").join("<br/>")) +
+        kv("filters", fpicks.map(p=> esc(p)+" <span style=\"color:var(--fg-4)\">→ "+esc((subsel[p]||[]).join(", "))+"</span>").join("<br/>")) +
+      '</div>'+
+      '<div class="card-f">'+
+        '<button class="btn btn-primary btn-sm" data-ap="approve"><i data-lucide="check"></i>Approve &amp; Build</button>'+
+        '<button class="btn btn-sm" data-ap="edit"><i data-lucide="pencil"></i>Edit</button>'+
+        '<button class="btn btn-sm btn-danger" data-ap="reject"><i data-lucide="x"></i>Reject</button>'+
+        '<div class="spacer"></div><span class="mono" style="font-size:9.5px;color:var(--fg-4);align-self:center">'+MOD+'↵ approves</span>'+
+      '</div>', "approve")
+    .addEventListener("click", e=>{
+      const b = e.target.closest("[data-ap]"); if(!b) return;
+      const act = b.getAttribute("data-ap");
+      b.closest(".card").querySelector(".card-f").innerHTML =
+        '<span class="mono" style="font-size:10px;color:'+(act==="reject"?"var(--err)":"var(--ok)")+'">resolved: '+act+'</span>';
+      if(act === "approve") applyParsed(), buildReport("approved");
+      else if(act === "edit") { applyParsed(); openEditor(); }
+      else { state.parsed = null; pushRow("Parsed configuration <b>rejected</b>. Nothing was built.","err"); toast("Configuration rejected"); }
+    });
+
+    finishRun("done","awaiting approval");
+    announce("Configuration ready for approval");
+  }catch(e){ finishRun("stop","aborted"); }
+}
+
+function applyParsed(){
+  const p = state.parsed; if(!p) return;
+  state.cfg = {name:p.name, type:p.type, template:p.template, folder:p.folder};
+  state.prompts = new Set(p.prompts); state.filters = new Set(p.filters);
+  state.subs = {}; Object.keys(p.subs).forEach(k=> state.subs[k] = new Set(p.subs[k]));
+  state.expanded = new Set(p.prompts.concat(p.filters));
+  syncConfigInputs(); renderPicker("prompts"); renderPicker("filters"); updateMeta();
+}
+function openEditor(){
+  mountConfig("brd");
+  syncConfigInputs(); renderPicker("prompts"); renderPicker("filters"); renderFoot();
+  pushRow("Opened parsed configuration for editing.","info");
+  configEl.scrollIntoView({block:"start"});
+  setTimeout(()=> $("#cfg-name", configEl).focus(), REDUCED?0:180);
+}
+$("#brd-parse").addEventListener("click", parseBRD);
+
+/* ==========================================================================
+   9. FLOW — build report
+   ========================================================================== */
+function selectionSummary(){
+  const line = (kind)=> Array.from(state[kind]).map(n=>{
+    const s = state.subs[n] ? Array.from(state.subs[n]) : [];
+    return esc(n) + (s.length ? " <span style=\"color:var(--fg-4)\">[" + esc(s.join(", ")) + "]</span>" : "");
+  });
+  return {p:line("prompts"), f:line("filters")};
+}
+
+async function buildReport(origin){
+  if(!state.cfg.type){ toast("Select a report type first","err"); return; }
+  if(!state.cfg.name.trim()){ toast("Report name is required","err"); return; }
+  if(origin === "mapping" && !state.files.mapping){ toast("Attach a mapping document first","err"); return; }
+  if(!beginRun("Build · " + state.cfg.name)) return;
+  try{
+    const sum = selectionSummary();
+    const nSubs = Object.keys(state.subs).reduce((a,k)=> a + (state.subs[k] ? state.subs[k].size : 0), 0);
+
+    if(origin === "approved") await step("Configuration <b>approved</b> by operator.", {think:180, work:220});
+    else await step("Reading mapping document <em>"+esc(state.files.mapping.name)+"</em>…", {work:560});
+
+    await step("Connecting to <em>"+(state.conn.status==="on" ? esc($("#c-iserver").value || "mstr-is-prod-01") : "mstr-is-prod-01")+"</em> · project <em>"+esc($("#sb-project").textContent)+"</em>…",
+      {work:520, status: state.conn.status==="on" ? "done" : "warn",
+       sub: state.conn.status==="on" ? "session: <span>authenticated</span>" : "no saved session — using <span>cached credentials</span>"});
+    await step("Resolving <em>"+state.prompts.size+"</em> prompt objects and <em>"+state.filters.size+"</em> filter objects…", {work:700,
+      sub: (sum.p.length? "prompts &nbsp;" + sum.p.join("<br/>prompts &nbsp;") : "prompts &nbsp;<span>none</span>") + "<br/>" +
+           (sum.f.length? "filters &nbsp;&nbsp;" + sum.f.join("<br/>filters &nbsp;&nbsp;") : "filters &nbsp;&nbsp;<span>none</span>")});
+    await step("Binding "+nSubs+" sub-option qualifications to report definition…");
+    await step("Applying template <em>"+esc(state.cfg.template || "Standard Grid")+"</em>…", {work:480});
+    await step("Generating SQL pass and validating against schema…", {work:900,
+      sub:"passes: <span>3</span> · tables: <span>"+rand(4,9)+"</span> · est. rows: <span>"+(rand(12,860)*1000).toLocaleString()+"</span>"});
+    await step("Writing report to <em>"+esc(state.cfg.folder || "/Public Objects/Reports")+"</em>…", {work:640});
+
+    const id = (Math.random().toString(16).slice(2,10) + Math.random().toString(16).slice(2,10)).toUpperCase();
+    state.builds++; updateMeta();
+    card(
+      '<div class="card-h"><i data-lucide="check-circle-2" style="width:12px;height:12px;color:var(--ok)"></i>'+
+      '<span class="sec-label" style="color:var(--ok)">Report Created</span><div class="spacer"></div>'+
+      '<span class="mono" style="font-size:9.5px;color:var(--fg-3)">'+rand(3,11)+'.'+rand(0,9)+'s</span></div>'+
+      '<div class="card-b">'+
+        kv("object", esc(state.cfg.name)) +
+        kv("id", id) +
+        kv("path", esc((state.cfg.folder||"") + "/" + slug(state.cfg.name)), true) +
+        kv("objects", state.prompts.size+" prompts · "+state.filters.size+" filters · "+nSubs+" qualifications") +
+      '</div>'+
+      '<div class="card-f">'+
+        '<button class="btn btn-sm" data-done="open"><i data-lucide="external-link"></i>Open in Library</button>'+
+        '<button class="btn btn-sm" data-done="copy"><i data-lucide="clipboard"></i>Copy path</button>'+
+      '</div>')
+    .addEventListener("click", e=>{
+      const b = e.target.closest("[data-done]"); if(!b) return;
+      if(b.getAttribute("data-done") === "copy") copyText((state.cfg.folder||"")+"/"+slug(state.cfg.name), "Report path");
+      else toast("Library deep-link is disabled in this prototype");
+    });
+
+    await step("Build complete — <em>"+esc(state.cfg.name)+"</em> is live.", {think:200, work:220});
+    finishRun("done","completed");
+    toast("Report built: " + state.cfg.name, "ok");
+  }catch(e){ finishRun("stop","aborted"); }
+}
+
+/* ==========================================================================
+   10. FLOW — generate mapping document
+   ========================================================================== */
+const MAP_SEED = [
+  ["FILL_DATE","Fill Date","attr","DATE","/Schema Objects/Attributes/Time"],
+  ["STORE_NBR","Store Number","attr","INTEGER","/Schema Objects/Attributes/Location"],
+  ["STORE_NAME","Store Name","attr","VARCHAR(60)","/Schema Objects/Attributes/Location"],
+  ["REGION_CD","Region","attr","CHAR(4)","/Schema Objects/Attributes/Location"],
+  ["DISTRICT_CD","District","attr","CHAR(6)","/Schema Objects/Attributes/Location"],
+  ["NDC_11","NDC","attr","CHAR(11)","/Schema Objects/Attributes/Product"],
+  ["GPI_CLASS","Drug Class","attr","VARCHAR(24)","/Schema Objects/Attributes/Product"],
+  ["PAYER_TYPE","Payer Type","attr","VARCHAR(18)","/Schema Objects/Attributes/Payer"],
+  ["CHANNEL_CD","Channel","attr","CHAR(3)","/Schema Objects/Attributes/Channel"],
+  ["RX_COUNT","Rx Count","metric","BIGINT","/Schema Objects/Metrics/Volume"],
+  ["QTY_DISPENSED","Quantity Dispensed","metric","DECIMAL(14,3)","/Schema Objects/Metrics/Volume"],
+  ["DAYS_SUPPLY","Days Supply","metric","INTEGER","/Schema Objects/Metrics/Volume"],
+  ["GROSS_REVENUE","Gross Revenue","metric","DECIMAL(16,2)","/Schema Objects/Metrics/Financial"],
+  ["COGS_AMT","Cost of Goods","metric","DECIMAL(16,2)","/Schema Objects/Metrics/Financial"],
+  ["MARGIN_PCT","Margin %","metric","DECIMAL(7,4)","/Schema Objects/Metrics/Financial"],
+  ["GENERIC_FLG","Generic Only","filter","CHAR(1)","/Public Objects/Filters/Product"],
+  ["ACTIVE_FLG","Active Locations","filter","CHAR(1)","/Public Objects/Filters/Location"],
+  ["FILL_DATE_RANGE","Date Range Prompt","prompt","DATE","/Public Objects/Prompts/Time"],
+  ["STORE_LIST","Store Prompt","prompt","INTEGER","/Public Objects/Prompts/Location"],
+  ["PAYER_LIST","Payer Filter","prompt","VARCHAR","/Public Objects/Prompts/Payer"]
+];
+
+async function generateMapping(){
+  const f = state.files.excel;
+  if(!f){ toast("Attach an Excel BRD first","err"); return; }
+  if(!beginRun("Mapping generation · " + f.name)) return;
+  try{
+    await step("Opening workbook <em>"+esc(f.name)+"</em> <span class=\"dim\">("+bytes(f.size)+")</span>…", {work:560});
+    await step("Reading sheet 1 as requirements grid — "+rand(60,180)+" rows scanned.");
+    await step("Domain hint: <em>"+esc($("#gm-domain").value)+"</em> · target schema <em>"+esc($("#gm-schema").value)+"</em>.", {work:380});
+    await step("Inferring MSTR object types for each source column…", {work:920});
+    await step("Scoring candidate matches against schema catalogue…", {work:740,
+      sub:"threshold: <span>"+esc($("#gm-conf").value)+"</span> · catalogue: <span>4,812 objects</span>"});
+
+    const min = parseFloat($("#gm-conf").value);
+    const rows = MAP_SEED.map((r,i)=>({
+      n:i+1, src:r[0], name:r[1], kind:r[2], dtype:r[3], folder:r[4],
+      conf:Math.min(0.99, Math.max(min, +(0.72 + Math.random()*0.27).toFixed(2)))
+    }));
+    state.mapping = rows;
+    renderMapping(rows);
+
+    await step("Mapping document assembled — <em>"+rows.length+"</em> objects.", {
+      sub:"attributes: <span>"+rows.filter(r=>r.kind==="attr").length+"</span> · metrics: <span>"+rows.filter(r=>r.kind==="metric").length+
+          "</span> · filters: <span>"+rows.filter(r=>r.kind==="filter").length+"</span> · prompts: <span>"+rows.filter(r=>r.kind==="prompt").length+"</span>"});
+    const avg = (rows.reduce((a,r)=>a+r.conf,0)/rows.length);
+    card(
+      '<div class="card-h"><i data-lucide="table-2" style="width:12px;height:12px;color:var(--ok)"></i>'+
+      '<span class="sec-label" style="color:var(--ok)">Mapping Ready</span><div class="spacer"></div>'+
+      '<span class="mono" style="font-size:9.5px;color:var(--fg-3)">avg '+avg.toFixed(2)+'</span>'+
+      '<span class="meter'+(avg<0.85?" mid":"")+'" style="max-width:44px"><i style="width:'+Math.round(avg*100)+'%"></i></span></div>'+
+      '<div class="card-b">'+ kv("objects", rows.length) + kv("low conf", rows.filter(r=>r.conf<0.8).length + " need review") +
+      kv("output", esc(slug(f.name.replace(/\.[^.]+$/,""))+"_mapping.csv"), true) +'</div>'+
+      '<div class="card-f"><button class="btn btn-sm" data-gm="dl"><i data-lucide="download"></i>Download</button>'+
+      '<button class="btn btn-primary btn-sm" data-gm="use"><i data-lucide="arrow-right"></i>Use to Build Report</button></div>')
+    .addEventListener("click", e=>{
+      const b = e.target.closest("[data-gm]"); if(!b) return;
+      b.getAttribute("data-gm") === "dl" ? downloadMapping() : useMapping();
+    });
+    finishRun("done","completed");
+    toast("Mapping document generated","ok");
+  }catch(e){ finishRun("stop","aborted"); }
+}
+
+function renderMapping(rows){
+  const labels = {attr:"Attribute", metric:"Metric", filter:"Filter", prompt:"Prompt"};
+  $("#gm-rows").innerHTML = rows.map(r=>
+    '<tr><td class="m" style="color:var(--fg-4)">'+r.n+'</td>'+
+    '<td class="m">'+esc(r.src)+'</td><td>'+esc(r.name)+'</td>'+
+    '<td><span class="pill '+r.kind+'">'+labels[r.kind]+'</span></td>'+
+    '<td class="m" style="color:var(--fg-3)">'+esc(r.dtype)+'</td>'+
+    '<td class="m" style="color:var(--fg-3)">'+esc(r.folder)+'</td>'+
+    '<td><span style="display:flex;align-items:center;gap:6px"><span class="meter'+(r.conf<0.85?" mid":"")+'"><i style="width:'+Math.round(r.conf*100)+'%"></i></span>'+
+    '<span class="mono" style="font-size:10px;color:var(--fg-3)">'+r.conf.toFixed(2)+'</span></span></td></tr>').join("");
+  $("#gm-count").textContent = String(rows.length);
+  $("#gm-meta").textContent = "source: " + (state.files.excel ? state.files.excel.name : "—");
+  $("#gm-foot").textContent = rows.filter(r=>r.conf<0.8).length + " object(s) below 0.80 — review before use";
+  $("#gm-result").hidden = false;
+}
+function mappingCSV(){
+  const head = "Source Column,Object Name,Object Type,Data Type,MSTR Folder,Confidence";
+  return head + "\n" + state.mapping.map(r=> [r.src,r.name,r.kind,r.dtype,r.folder,r.conf].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+}
+function downloadMapping(){
+  if(!state.mapping){ toast("Generate a mapping first","err"); return; }
+  const base = state.files.excel ? slug(state.files.excel.name.replace(/\.[^.]+$/,"")) : "brd";
+  const blob = new Blob([mappingCSV()], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = base + "_mapping.csv";
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  pushRow("Downloaded <em>"+esc(a.download)+"</em>.","done");
+  toast("Mapping downloaded","ok");
+}
+function useMapping(){
+  if(!state.mapping){ toast("Generate a mapping first","err"); return; }
+  const base = state.files.excel ? slug(state.files.excel.name.replace(/\.[^.]+$/,"")) : "brd";
+  const name = base + "_mapping.csv";
+  go("new-report"); setMode("mapping");
+  mapFile.attach(name, mappingCSV().length);
+  setReportType("Dispense", false);
+  state.cfg.name = base.slice(0,44) + "_Report";
+  syncConfigInputs(); renderFoot();
+  pushRow("Loaded generated mapping <em>"+esc(name)+"</em> into the report builder.","done");
+  toast("Mapping loaded into New Report","ok");
+}
+$("#gm-run").addEventListener("click", generateMapping);
+$("#gm-download").addEventListener("click", downloadMapping);
+$("#gm-use").addEventListener("click", useMapping);
+$("#gm-copy").addEventListener("click", ()=>{
+  if(!state.mapping){ toast("Generate a mapping first","err"); return; }
+  copyText(state.mapping.map(r=>[r.src,r.name,r.kind,r.dtype,r.folder,r.conf].join("\t")).join("\n"), state.mapping.length+" rows");
+});
+
+/* ==========================================================================
+   11. FLOW — free SQL
+   ========================================================================== */
+const SAMPLE_SQL =
+"SELECT\n"+
+"    d.FILL_DATE                     AS \"Fill Date\",\n"+
+"    s.STORE_NBR                     AS \"Store Number\",\n"+
+"    s.REGION_CD                     AS \"Region\",\n"+
+"    p.GPI_CLASS                     AS \"Drug Class\",\n"+
+"    COUNT(DISTINCT d.RX_NBR)        AS \"Rx Count\",\n"+
+"    SUM(d.QTY_DISPENSED)            AS \"Quantity Dispensed\",\n"+
+"    SUM(d.GROSS_REVENUE)            AS \"Gross Revenue\"\n"+
+"FROM EDW.RX_DISPENSE_FACT d\n"+
+"    INNER JOIN EDW.DIM_STORE   s ON s.STORE_KEY   = d.STORE_KEY\n"+
+"    INNER JOIN EDW.DIM_PRODUCT p ON p.PRODUCT_KEY = d.PRODUCT_KEY\n"+
+"WHERE d.FILL_DATE BETWEEN ?startDate AND ?endDate\n"+
+"  AND s.ACTIVE_FLG = 'Y'\n"+
+"GROUP BY 1, 2, 3, 4\n"+
+"ORDER BY 1 DESC, 5 DESC;";
+
+const sqlText = $("#sql-text"), sqlGutter = $("#sql-gutter");
+function paintSQL(){
+  const v = sqlText.value, lines = v.split("\n").length;
+  let g = ""; for(let i=1;i<=Math.max(lines,1);i++) g += i + "\n";
+  sqlGutter.textContent = g;
+  $("#sql-meta").textContent = lines + " line" + (lines===1?"":"s") + " · " + v.length + " chars";
+  if(state.sqlValid){ state.sqlValid = false; $("#sql-status").textContent = "Modified — revalidate"; }
+}
+sqlText.addEventListener("input", paintSQL);
+sqlText.addEventListener("scroll", ()=>{ sqlGutter.scrollTop = sqlText.scrollTop; });
+sqlText.addEventListener("keydown", e=>{
+  if(e.key === "Tab"){
+    e.preventDefault();
+    const s = sqlText.selectionStart, en = sqlText.selectionEnd;
+    sqlText.value = sqlText.value.slice(0,s) + "  " + sqlText.value.slice(en);
+    sqlText.selectionStart = sqlText.selectionEnd = s+2;
+    paintSQL();
+  }
+});
+$("#sql-sample").addEventListener("click", ()=>{ sqlText.value = SAMPLE_SQL; paintSQL(); toast("Sample query inserted"); sqlText.focus(); });
+$("#sql-format").addEventListener("click", ()=>{
+  const v = sqlText.value.trim();
+  if(!v){ toast("Editor is empty","err"); return; }
+  sqlText.value = v.replace(/[ \t]+$/gm,"").replace(/\n{3,}/g,"\n\n")
+    .replace(/\b(select|from|where|group by|order by|having|inner join|left join|right join|union all|union)\b/gi, m=>m.toUpperCase());
+  paintSQL(); toast("Whitespace tidied · keywords upper-cased");
+});
+
+function validateSQL(quiet){
+  const v = sqlText.value.trim();
+  const problems = [];
+  if(!v) problems.push("query is empty");
+  if(v && !/\bselect\b/i.test(v)) problems.push("no SELECT statement found");
+  if(/\b(drop|truncate|delete|update|insert|alter)\b/i.test(v)) problems.push("DDL/DML is not permitted in Freeform reports");
+  const open = (v.match(/\(/g)||[]).length, close = (v.match(/\)/g)||[]).length;
+  if(open !== close) problems.push("unbalanced parentheses ("+open+" open / "+close+" close)");
+  state.sqlValid = problems.length === 0;
+  const el = $("#sql-status");
+  el.textContent = state.sqlValid ? "Valid · " + ((v.match(/\bas\s+"/gi)||[]).length || (v.match(/\bas\b/gi)||[]).length) + " aliased columns" : problems[0];
+  el.style.color = state.sqlValid ? "var(--ok)" : "var(--err)";
+  if(!quiet){
+    if(state.sqlValid) toast("SQL valid","ok"); else toast(problems[0], "err");
+  }
+  return state.sqlValid;
+}
+$("#sql-validate").addEventListener("click", ()=> validateSQL(false));
+
+async function buildSQL(){
+  if(!validateSQL(true)){ toast($("#sql-status").textContent, "err"); sqlText.focus(); return; }
+  const name = $("#sql-name").value.trim();
+  if(!name){ toast("Report name is required","err"); $("#sql-name").focus(); return; }
+  if(!beginRun("Freeform SQL · " + name)) return;
+  try{
+    const v = sqlText.value;
+    const cols = (v.match(/AS\s+"([^"]+)"/gi)||[]).map(s=> s.replace(/AS\s+"/i,"").replace(/"$/,""));
+    await step("Parsing SQL statement — "+v.split("\n").length+" lines.", {work:420});
+    await step("Detected <em>"+cols.length+"</em> aliased columns as report objects.", {
+      sub: cols.length ? "objects: <span>"+esc(cols.join(", "))+"</span>" : "no explicit aliases — columns will be auto-named"});
+    await step("Binding to database instance <em>"+esc($("#sql-db").value)+"</em>…", {work:540});
+    await step("Executing EXPLAIN against optimizer…", {work:880,
+      sub:"est. cost: <span>"+(rand(120,900)/10).toFixed(1)+"</span> · spool: <span>"+rand(20,700)+" MB</span>"});
+    await step("Detected "+((v.match(/\?/g)||[]).length)+" bind parameter(s) — promoting to MSTR prompts.", {work:420});
+    await step("Creating Freeform SQL report in <em>"+esc($("#sql-folder").value)+"</em>…", {work:660});
+    state.builds++; updateMeta();
+    card('<div class="card-h"><i data-lucide="check-circle-2" style="width:12px;height:12px;color:var(--ok)"></i>'+
+      '<span class="sec-label" style="color:var(--ok)">Freeform Report Created</span></div>'+
+      '<div class="card-b">'+ kv("object", esc(name)) + kv("instance", esc($("#sql-db").value)) +
+      kv("limit", esc($("#sql-limit").value) + " rows · cache " + esc($("#sql-cache").value)) +
+      kv("path", esc($("#sql-folder").value + "/" + slug(name)), true) + '</div>');
+    finishRun("done","completed");
+    toast("Freeform report built: " + name, "ok");
+  }catch(e){ finishRun("stop","aborted"); }
+}
+$("#sql-build").addEventListener("click", buildSQL);
+
+/* ==========================================================================
+   12. CONNECTION
+   ========================================================================== */
+const CONN_FIELDS = ["c-library","c-iserver","c-port","c-project","c-auth","c-user","c-pass","c-token","c-dbi","c-dsn","c-folder","c-template"];
+
+function authMode(){ return $("#c-auth").value; }
+function applyAuthMode(){
+  const m = authMode();
+  const usesCreds = m === "standard" || m === "ldap";
+  const usesToken = m === "token";
+  $("#c-user").disabled = !usesCreds;
+  $("#c-pass").disabled = !usesCreds;
+  $("#c-pass-eye").disabled = !usesCreds;
+  $("#c-token").disabled = !usesToken;
+  $("#c-token-eye").disabled = !usesToken;
+  $("#c-auth-hint").textContent = {
+    standard:"Standard auth uses username + password.",
+    ldap:"LDAP binds against the corporate directory — use your network ID.",
+    saml:"SAML redirects to the IdP in a browser session; no credentials stored here.",
+    oauth:"OAuth uses the registered CVS BI client; no credentials stored here.",
+    token:"API Token auth uses a personal access token only."
+  }[m];
+}
+$("#c-auth").addEventListener("change", applyAuthMode);
+
+function eye(btnId, inpId){
+  $("#"+btnId).addEventListener("click", ()=>{
+    const i = $("#"+inpId), show = i.type === "password";
+    i.type = show ? "text" : "password";
+    $("#"+btnId).innerHTML = '<i data-lucide="'+(show?"eye-off":"eye")+'"></i>';
+    $("#"+btnId).setAttribute("aria-label", (show?"Hide":"Show")+" value");
+    icons();
+  });
+}
+eye("c-pass-eye","c-pass"); eye("c-token-eye","c-token");
+
+function setConn(status){
+  state.conn.status = status;
+  const label = {on:"CONNECTED", off:"DISCONNECTED", busy:"TESTING…"}[status];
+  ["conn-dot","conn-dot-2","conn-dot-3"].forEach(id=> $("#"+id).className = "dot " + status);
+  $("#conn-text").textContent = label;
+  $("#conn-text-2").textContent = label;
+  $("#conn-text-3").textContent = label.toLowerCase().replace("…","");
+}
+
+async function testConnection(){
+  const lib = $("#c-library").value.trim(), iserv = $("#c-iserver").value.trim(), proj = $("#c-project").value.trim();
+  const btn = $("#c-test");
+  const missing = [];
+  if(!lib) missing.push("Library URL");
+  if(!iserv) missing.push("Intelligence Server");
+  if(!proj) missing.push("Project Name");
+  if(missing.length){
+    toast("Missing: " + missing.join(", "), "err");
+    $("#"+(missing[0]==="Library URL"?"c-library":missing[0]==="Intelligence Server"?"c-iserver":"c-project")).focus();
+    setConn("off");
+    return;
+  }
+  const m = authMode();
+  if((m==="standard"||m==="ldap") && !$("#c-user").value.trim()){ toast("Username required for "+m.toUpperCase()+" auth","err"); $("#c-user").focus(); return; }
+  if(m==="token" && !$("#c-token").value.trim()){ toast("API token required","err"); $("#c-token").focus(); return; }
+
+  setConn("busy");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Testing…';
+  if(!beginRun("Connection test")) { btn.disabled=false; btn.innerHTML='<i data-lucide="zap"></i>Test Connection<kbd class="kbd">'+MOD+'↵</kbd>'; icons(); return; }
+  try{
+    await step("Resolving <em>"+esc(lib)+"</em>…", {work:520});
+    await step("TLS handshake with <em>"+esc(iserv)+":"+esc($("#c-port").value)+"</em>…", {work:600});
+    await step("Authenticating via <em>"+m.toUpperCase()+"</em>…", {work:720});
+    await step("Opening project <em>"+esc(proj)+"</em>…", {work:480,
+      sub:"database instance: <span>"+esc($("#c-dbi").value || "—")+"</span> · dsn: <span>"+esc($("#c-dsn").value || "—")+"</span>"});
+    setConn("on");
+    $("#sb-project").textContent = proj;
+    $("#crumb-proj").textContent = proj;
+    card('<div class="card-h"><i data-lucide="plug-zap" style="width:12px;height:12px;color:var(--ok)"></i>'+
+      '<span class="sec-label" style="color:var(--ok)">Connection OK</span></div><div class="card-b">'+
+      kv("server", esc(iserv)) + kv("project", esc(proj), true) + kv("auth", m.toUpperCase()) +
+      kv("latency", rand(28,140)+" ms") + kv("version", "MicroStrategy 2021 Update 12") + '</div>');
+    await step("Session established. <b>Ready to build.</b>", {think:160, work:200});
+    finishRun("done","connected");
+    toast("Connected to " + proj, "ok");
+  }catch(e){ setConn("off"); finishRun("stop","aborted"); }
+  finally{
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="zap"></i>Test Connection<kbd class="kbd">'+MOD+'↵</kbd>';
+    icons();
+  }
+}
+$("#c-test").addEventListener("click", testConnection);
+
+function saveConn(){
+  const o = {};
+  CONN_FIELDS.forEach(id=> o[id] = $("#"+id).value);
+  try{
+    localStorage.setItem("mstr.console.conn", JSON.stringify(o));
+    state.conn.saved = true;
+    $("#c-saved").textContent = "Saved " + new Date().toLocaleTimeString();
+    $("#sb-project").textContent = o["c-project"] || "—";
+    $("#crumb-proj").textContent = o["c-project"] || "—";
+    pushRow("Connection configuration saved to local storage.","done");
+    toast("Configuration saved","ok");
+  }catch(e){ toast("localStorage unavailable in this context","err"); }
+}
+function loadConn(){
+  let raw = null;
+  try{ raw = localStorage.getItem("mstr.console.conn"); }catch(e){}
+  if(!raw){
+    /* sensible first-run defaults so the form is never empty-looking */
+    $("#c-library").value = "https://mstr.cvshealth.com/MicroStrategyLibrary";
+    $("#c-iserver").value = "mstr-is-prod-01.cvshealth.com";
+    $("#c-project").value = "CVS_Enterprise_DW";
+    $("#c-dbi").value = "EDW_PROD_TD";
+    $("#c-dsn").value = "TD_EDW_PROD";
+    applyAuthMode(); return;
+  }
+  try{
+    const o = JSON.parse(raw);
+    CONN_FIELDS.forEach(id=>{ if(o[id] != null) $("#"+id).value = o[id]; });
+    state.conn.saved = true;
+    $("#c-saved").textContent = "Loaded from local storage";
+    $("#sb-project").textContent = o["c-project"] || "—";
+    $("#crumb-proj").textContent = o["c-project"] || "—";
+  }catch(e){}
+  applyAuthMode();
+}
+$("#c-save").addEventListener("click", saveConn);
+$("#c-reset").addEventListener("click", ()=>{
+  try{ localStorage.removeItem("mstr.console.conn"); }catch(e){}
+  CONN_FIELDS.forEach(id=>{ const el = $("#"+id); if(el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+  $("#c-port").value = "34952";
+  $("#c-folder").value = "/Public Objects/Reports";
+  setConn("off"); applyAuthMode();
+  $("#c-saved").textContent = "Reset — never saved";
+  pushRow("Connection configuration reset.","warn");
+  toast("Configuration reset");
+});
+
+/* ==========================================================================
+   13. NAVIGATION / MODE
+   ========================================================================== */
+const PAGES = {
+  "new-report":"New Report", "generate-mapping":"Generate Mapping",
+  "free-sql":"Free SQL Report", "connection":"MSTR Connection"
+};
+function go(page){
+  if(!PAGES[page]) return;
+  state.page = page;
+  $$(".page").forEach(p=> p.classList.toggle("on", p.id === "page-"+page));
+  $$(".nav").forEach(n=> n.getAttribute("data-page") === page ? n.setAttribute("aria-current","page") : n.removeAttribute("aria-current"));
+  $("#crumb-page").textContent = page;
+  $("#pal-scope").textContent = page;
+  $("#main").scrollTop = 0;
+  announce(PAGES[page] + " page");
+}
+$$(".nav").forEach(n=> n.addEventListener("click", ()=> go(n.getAttribute("data-page"))));
+$("#conn-pill").addEventListener("click", ()=> go("connection"));
+$("#sb-conn").addEventListener("click", ()=> go("connection"));
+
+function setMode(mode){
+  state.mode = mode;
+  $("#mode-brd").setAttribute("aria-selected", String(mode==="brd"));
+  $("#mode-map").setAttribute("aria-selected", String(mode==="mapping"));
+  $("#pane-brd").hidden = mode !== "brd";
+  $("#pane-mapping").hidden = mode !== "mapping";
+  if(mode === "mapping") mountConfig("mapping");
+  else if(state.parsed) mountConfig("brd");
+  else configEl.remove();
+  announce(mode === "brd" ? "Upload BRD mode" : "Mapping document mode");
+}
+$$('[data-mode]').forEach(b=> b.addEventListener("click", ()=> setMode(b.getAttribute("data-mode"))));
+
+/* ==========================================================================
+   14. SESSION METADATA
+   ========================================================================== */
+function updateMeta(){
+  const t = state.cfg.type ? REPORT_TYPES[state.cfg.type].label : "—";
+  $("#m-type").textContent = t;
+  $("#m-prompts").textContent = String(state.prompts.size);
+  $("#m-filters").textContent = String(state.filters.size);
+  $("#m-builds").textContent = String(state.builds);
+  $("#sb-type").textContent = state.cfg.type ? state.cfg.type.toLowerCase() : "none";
+  $("#sb-sel").textContent = state.prompts.size + "p " + state.filters.size + "f";
+  const p = state.cfg.folder || "—";
+  $("#sb-path").textContent = p.length > 42 ? "…" + p.slice(-41) : p;
+}
+$("#sb-path-wrap").addEventListener("click", ()=>{
+  if(!state.cfg.folder){ toast("No output path set yet","err"); return; }
+  copyText(state.cfg.folder, "Output path");
+});
+
+/* ==========================================================================
+   15. PRIMARY ACTION (Cmd/Ctrl + Enter) — context aware
+   ========================================================================== */
+function primaryAction(){
+  if(state.page === "connection") return testConnection();
+  if(state.page === "free-sql") return buildSQL();
+  if(state.page === "generate-mapping") return generateMapping();
+  /* new-report */
+  if(state.mode === "brd"){
+    if(state.parsed && configEl.isConnected) return buildReport("approved");
+    const pending = $('[data-ap="approve"]');
+    if(pending) return pending.click();
+    return parseBRD();
+  }
+  return buildReport("mapping");
+}
+
+/* ==========================================================================
+   16. COMMAND PALETTE
+   ========================================================================== */
+function fuzzy(q, text){
+  if(!q) return {score:0, hits:[]};
+  const t = text.toLowerCase(), s = q.toLowerCase().replace(/\s+/g,"");
+  let ti = 0, score = 0, streak = 0; const hits = [];
+  for(let i=0;i<s.length;i++){
+    const idx = t.indexOf(s[i], ti);
+    if(idx < 0) return null;
+    let bonus = 0;
+    if(idx === 0 || /[\s\-_/.:]/.test(t.charAt(idx-1))) bonus += 14;
+    if(idx === ti){ streak++; bonus += 5 + streak*3; } else streak = 0;
+    score += 10 + bonus - Math.min(idx - ti, 8);
+    hits.push(idx); ti = idx + 1;
+  }
+  return {score: score - t.length*0.12, hits:hits};
+}
+function mark(text, hits){
+  if(!hits || !hits.length) return esc(text);
+  let out = "", h = 0;
+  for(let i=0;i<text.length;i++){
+    if(h < hits.length && hits[h] === i){ out += "<mark>"+esc(text[i])+"</mark>"; h++; }
+    else out += esc(text[i]);
+  }
+  return out;
+}
+
+function commands(){
+  const c = [];
+  const add = (group, label, icon, run, opts)=> c.push(Object.assign({group:group,label:label,icon:icon,run:run}, opts||{}));
+
+  /* navigate */
+  add("Navigate","Go to New Report","file-plus-2", ()=> go("new-report"), {hint:"g n"});
+  add("Navigate","Go to Generate Mapping","table-2", ()=> go("generate-mapping"), {hint:"g m"});
+  add("Navigate","Go to Free SQL Report","terminal", ()=> go("free-sql"), {hint:"g q"});
+  add("Navigate","Go to MSTR Connection","plug-zap", ()=> go("connection"), {hint:"g c"});
+  add("Navigate","Switch to Upload BRD mode","sparkles", ()=>{ go("new-report"); setMode("brd"); }, {hint:"1"});
+  add("Navigate","Switch to Mapping Document mode","list-tree", ()=>{ go("new-report"); setMode("mapping"); }, {hint:"2"});
+
+  /* actions */
+  add("Actions","Upload BRD","upload", ()=>{ go("new-report"); setMode("brd"); setSource("local"); $("#brd-input").click(); });
+  add("Actions","Fetch BRD from SharePoint","cloud", ()=>{ go("new-report"); setMode("brd"); setSource("sharepoint"); $("#sp-url").focus(); });
+  add("Actions","Pull BRD from Database","database", ()=>{ go("new-report"); setMode("brd"); setSource("database"); $("#db-id").focus(); });
+  add("Actions","Parse BRD with AI","scan-line", ()=>{ go("new-report"); setMode("brd"); parseBRD(); }, {hint:MOD+"↵"});
+  add("Actions","Upload Mapping Document","file-spreadsheet", ()=>{ go("new-report"); setMode("mapping"); $("#map-input").click(); });
+  add("Actions","Build Report","hammer", ()=>{ go("new-report"); buildReport(state.mode === "brd" ? "approved" : "mapping"); });
+  add("Actions","Generate Mapping Document","wand-2", ()=>{ go("generate-mapping"); generateMapping(); });
+  add("Actions","Download Mapping CSV","download", downloadMapping);
+  add("Actions","Insert sample SQL","file-code-2", ()=>{ go("free-sql"); $("#sql-sample").click(); });
+  add("Actions","Validate SQL","check-check", ()=>{ go("free-sql"); validateSQL(false); }, {hint:MOD+"⇧V"});
+  add("Actions","Build Freeform SQL Report","play", ()=>{ go("free-sql"); buildSQL(); });
+  add("Actions","Test Connection","zap", ()=>{ go("connection"); testConnection(); });
+  add("Actions","Save Configuration","save", ()=>{ go("connection"); saveConn(); }, {hint:MOD+"S"});
+  add("Actions","Reset Configuration","rotate-ccw", ()=>{ go("connection"); $("#c-reset").click(); });
+  add("Actions","Copy output folder path","clipboard", ()=>{
+    state.cfg.folder ? copyText(state.cfg.folder,"Output path") : toast("No output path set yet","err"); });
+
+  /* report types */
+  Object.keys(REPORT_TYPES).forEach(k=>{
+    add("Report Type","Set report type to "+REPORT_TYPES[k].label, "shapes", ()=>{
+      go("new-report"); if(state.mode !== "mapping" && !state.parsed) setMode("mapping");
+      setReportType(k, true);
+    }, {sub:REPORT_TYPES[k].template, on: state.cfg.type === k});
+  });
+
+  /* dynamic prompt / filter toggles for the active type */
+  if(state.cfg.type){
+    const d = REPORT_TYPES[state.cfg.type];
+    d.prompts.forEach(p=> add("Prompts · "+d.label, "Toggle "+p, "message-square-dashed",
+      ()=>{ toggleParent("prompts", p); }, {on: state.prompts.has(p), sub:(SUB[p]||[]).length+" opts"}));
+    d.filters.forEach(f=> add("Filters · "+d.label, "Toggle "+f, "filter",
+      ()=>{ toggleParent("filters", f); }, {on: state.filters.has(f), sub:(SUB[f]||[]).length+" opts"}));
+    add("Bulk","Select all prompts","check-check", ()=>{ d.prompts.forEach(p=>{ if(!state.prompts.has(p)) toggleParent("prompts",p,true); }); renderPicker("prompts"); updateMeta(); renderFoot(); toast("All prompts selected"); });
+    add("Bulk","Clear all prompts","x", ()=>{ state.prompts.clear(); renderPicker("prompts"); updateMeta(); renderFoot(); toast("Prompts cleared"); });
+    add("Bulk","Select all filters","check-check", ()=>{ d.filters.forEach(f=>{ if(!state.filters.has(f)) toggleParent("filters",f,true); }); renderPicker("filters"); updateMeta(); renderFoot(); toast("All filters selected"); });
+    add("Bulk","Clear all filters","x", ()=>{ state.filters.clear(); renderPicker("filters"); updateMeta(); renderFoot(); toast("Filters cleared"); });
+  }
+
+  /* view */
+  add("View","Toggle AI activity stream","panel-right", toggleStream, {hint:MOD+"B"});
+  add("View","Clear AI activity stream","eraser", clearStream, {hint:MOD+"⇧K"});
+  add("View","Copy activity log","clipboard", ()=> $("#st-copy").click());
+  add("View","Show keyboard shortcuts","keyboard", openLegend, {hint:"?"});
+  add("View","Abort running build","square", ()=> state.running ? $("#st-stop").click() : toast("Nothing is running"));
+  return c;
+}
+
+const pal = {open:false, items:[], cursor:0};
+function openPalette(seed){
+  pal.open = true;
+  $("#palette-overlay").hidden = false;
+  $("#pal-scope").textContent = state.page;
+  const q = $("#pal-q");
+  q.value = seed || "";
+  filterPalette();
+  q.focus(); q.select();
+}
+function closePalette(){ pal.open = false; $("#palette-overlay").hidden = true; }
+function filterPalette(){
+  const q = $("#pal-q").value.trim();
+  const all = commands();
+  let scored;
+  if(!q) scored = all.map((c,i)=>({c:c, s:-i, hits:null}));
+  else {
+    scored = [];
+    all.forEach(c=>{
+      const r = fuzzy(q, c.label) || fuzzy(q, c.group + " " + c.label);
+      if(r) scored.push({c:c, s:r.score, hits: fuzzy(q,c.label) ? r.hits : null});
+    });
+    scored.sort((a,b)=> b.s - a.s);
+  }
+  pal.items = scored.map(x=> x.c);
+  pal.cursor = 0;
+
+  const list = $("#pal-list");
+  if(!scored.length){
+    list.innerHTML = '<div class="pal-empty">no command matches “'+esc(q)+'”</div>';
+    $("#pal-stat").textContent = "0 results";
+    return;
+  }
+  let html = "", lastGroup = null, i = 0;
+  scored.forEach(x=>{
+    if(x.c.group !== lastGroup){
+      html += '<div class="pal-group"><span class="sec-label">'+esc(x.c.group)+'</span><span class="ln"></span></div>';
+      lastGroup = x.c.group;
+    }
+    html += '<div class="pal-item'+(i===0?" cursor":"")+'" role="option" aria-selected="'+(i===0)+'" data-i="'+i+'">'+
+      '<span class="pi"><i data-lucide="'+x.c.icon+'"></i></span>'+
+      '<span class="lbl">'+mark(x.c.label, x.hits)+'</span>'+
+      (x.c.on ? '<span class="state on">on</span>' : x.c.sub ? '<span class="sub2">'+esc(x.c.sub)+'</span>' : "")+
+      (x.c.hint ? '<kbd class="kbd">'+esc(x.c.hint)+'</kbd>' : "")+
+    '</div>';
+    i++;
+  });
+  list.innerHTML = html;
+  $("#pal-stat").textContent = scored.length + " result" + (scored.length===1?"":"s");
+  icons();
+}
+function moveCursor(delta){
+  if(!pal.items.length) return;
+  pal.cursor = (pal.cursor + delta + pal.items.length) % pal.items.length;
+  $$(".pal-item").forEach(el=>{
+    const on = +el.getAttribute("data-i") === pal.cursor;
+    el.classList.toggle("cursor", on);
+    el.setAttribute("aria-selected", String(on));
+    if(on && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+  });
+}
+function runCommand(i){
+  const c = pal.items[i];
+  if(!c) return;
+  closePalette();
+  setTimeout(()=>{ try{ c.run(); }catch(e){ toast("Command failed: "+c.label,"err"); } }, 10);
+}
+$("#pal-q").addEventListener("input", filterPalette);
+$("#pal-list").addEventListener("mousemove", e=>{
+  const it = e.target.closest(".pal-item"); if(!it) return;
+  const i = +it.getAttribute("data-i");
+  if(i !== pal.cursor){ pal.cursor = i; $$(".pal-item").forEach(el=>{
+    const on = +el.getAttribute("data-i") === i; el.classList.toggle("cursor", on); el.setAttribute("aria-selected", String(on)); }); }
+});
+$("#pal-list").addEventListener("click", e=>{
+  const it = e.target.closest(".pal-item"); if(!it) return;
+  runCommand(+it.getAttribute("data-i"));
+});
+$("#palette-overlay").addEventListener("mousedown", e=>{ if(e.target.id === "palette-overlay") closePalette(); });
+$("#palette-btn").addEventListener("click", ()=> openPalette(""));
+
+/* ==========================================================================
+   17. SHORTCUT LEGEND
+   ========================================================================== */
+const LEGEND = [
+  ["Global", [
+    ["Open command palette", [MOD,"K"]],
+    ["Run primary action on page", [MOD,"↵"]],
+    ["Toggle activity stream", [MOD,"B"]],
+    ["Clear activity stream", [MOD,"⇧","K"]],
+    ["Save connection config", [MOD,"S"]],
+    ["Keyboard shortcuts", ["?"]],
+    ["Close overlay / blur field", ["esc"]]
+  ]],
+  ["Navigate", [
+    ["New Report", ["g","n"]],
+    ["Generate Mapping", ["g","m"]],
+    ["Free SQL Report", ["g","q"]],
+    ["MSTR Connection", ["g","c"]],
+    ["Upload BRD mode", ["1"]],
+    ["Mapping Document mode", ["2"]]
+  ]],
+  ["Prompt / Filter lists", [
+    ["Move cursor", ["↑","↓"]],
+    ["Move cursor (vim)", ["k","j"]],
+    ["Toggle selection", ["space"]],
+    ["Expand sub-options", ["→"]],
+    ["Collapse / jump to parent", ["←"]],
+    ["First / last item", ["home","end"]]
+  ]],
+  ["Editors", [
+    ["Indent two spaces (SQL)", ["tab"]],
+    ["Validate SQL", [MOD,"⇧","V"]],
+    ["Abort running build", [MOD,"."]]
+  ]]
+];
+function openLegend(){
+  $("#legend-body").innerHTML = LEGEND.map(sec=>
+    '<div class="legend-sec"><span class="sec-label">'+esc(sec[0])+'</span>'+
+    sec[1].map(r=> '<div class="legend-row"><span>'+esc(r[0])+'</span><span class="keys">'+
+      r[1].map(k=>'<kbd class="kbd">'+esc(k)+'</kbd>').join("")+'</span></div>').join("")+'</div>').join("");
+  $("#legend-overlay").hidden = false;
+  $("#legend-close").focus();
+}
+function closeLegend(){ $("#legend-overlay").hidden = true; }
+$("#legend-btn").addEventListener("click", openLegend);
+$("#legend-close").addEventListener("click", closeLegend);
+$("#legend-overlay").addEventListener("mousedown", e=>{ if(e.target.id === "legend-overlay") closeLegend(); });
+
+/* ==========================================================================
+   18. GLOBAL KEYBOARD
+   ========================================================================== */
+function toggleStream(){
+  const s = $("#stream");
+  s.classList.toggle("hide");
+  toast(s.classList.contains("hide") ? "Activity stream hidden" : "Activity stream shown", null, MOD+"B");
+}
+let gPending = 0;
+function typing(el){
+  return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+}
+
+document.addEventListener("keydown", e=>{
+  const mod = IS_MAC ? e.metaKey : e.ctrlKey;
+  const el = document.activeElement;
+
+  /* palette-scoped keys */
+  if(pal.open){
+    if(e.key === "Escape"){ e.preventDefault(); closePalette(); return; }
+    if(e.key === "ArrowDown" || (e.key === "n" && e.ctrlKey)){ e.preventDefault(); moveCursor(1); return; }
+    if(e.key === "ArrowUp" || (e.key === "p" && e.ctrlKey)){ e.preventDefault(); moveCursor(-1); return; }
+    if(e.key === "Enter"){ e.preventDefault(); runCommand(pal.cursor); return; }
+    if(e.key === "Tab"){ e.preventDefault(); moveCursor(e.shiftKey ? -1 : 1); return; }
+    if(mod && e.key.toLowerCase() === "k"){ e.preventDefault(); closePalette(); return; }
+    return;
+  }
+  if(!$("#legend-overlay").hidden){
+    if(e.key === "Escape" || e.key === "?"){ e.preventDefault(); closeLegend(); }
+    return;
+  }
+
+  /* palette open */
+  if(mod && e.key.toLowerCase() === "k" && !e.shiftKey){ e.preventDefault(); openPalette(""); return; }
+  if(mod && e.shiftKey && e.key.toLowerCase() === "k"){ e.preventDefault(); clearStream(); toast("Stream cleared"); return; }
+  if(mod && e.key === "Enter"){ e.preventDefault(); primaryAction(); return; }
+  if(mod && e.key.toLowerCase() === "b"){ e.preventDefault(); toggleStream(); return; }
+  if(mod && e.key.toLowerCase() === "s"){ e.preventDefault(); go("connection"); saveConn(); return; }
+  if(mod && e.shiftKey && e.key.toLowerCase() === "v"){ e.preventDefault(); go("free-sql"); validateSQL(false); return; }
+  if(mod && e.key === "."){ e.preventDefault(); if(state.running) $("#st-stop").click(); return; }
+
+  if(e.key === "Escape"){
+    if(typing(el)){ el.blur(); return; }
+  }
+  if(typing(el) || mod || e.altKey) return;
+
+  /* single-key & sequence shortcuts (only outside inputs) */
+  if(e.key === "?"){ e.preventDefault(); openLegend(); return; }
+  if(e.key === "g"){ gPending = Date.now(); return; }
+  if(gPending && Date.now() - gPending < 900){
+    const map = {n:"new-report", m:"generate-mapping", q:"free-sql", c:"connection"};
+    const p = map[e.key.toLowerCase()];
+    gPending = 0;
+    if(p){ e.preventDefault(); go(p); return; }
+  }
+  if(state.page === "new-report"){
+    if(e.key === "1"){ e.preventDefault(); setMode("brd"); return; }
+    if(e.key === "2"){ e.preventDefault(); setMode("mapping"); return; }
+  }
+});
+
+/* ==========================================================================
+   19. BOOT
+   ========================================================================== */
+function boot(){
+  /* platform-correct key caps everywhere */
+  $("#kbd-mod").textContent = MOD + "K";
+  $$(".kbd").forEach(k=>{ if(k.textContent.indexOf("⌘") === 0 && !IS_MAC) k.textContent = k.textContent.replace("⌘","Ctrl"); });
+
+  loadConn();
+  setSource("local");
+  setMode("brd");
+  sqlText.value = SAMPLE_SQL;
+  paintSQL();
+  $("#sql-name").value = "Rx_Dispense_Adhoc_Daily";
+  updateMeta();
+  setConn("off");
+  icons();
+
+  pushRow("Console ready. Press <em>"+MOD+"K</em> for commands, <em>?</em> for keyboard shortcuts.","info");
+  setTimeout(()=>{ const i = $("#st-idle"); if(i) i.remove(); }, 0);
+}
+boot();
+
+/* keep icon set fresh after late CDN load */
+window.addEventListener("load", icons);
+})();
+</script>
+</body>
+</html>

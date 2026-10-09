@@ -1,0 +1,2761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MSTR Report Builder — Flow Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   01 · DESIGN TOKENS
+   A single neutral ramp does almost all the work. CVS red is reserved for
+   state: the active path, the current node, primary action, destructive.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  /* neutral ramp — slightly cool, paper-like */
+  --paper:#FFFFFF;
+  --paper-2:#FBFBFC;
+  --paper-3:#F5F5F7;
+  --paper-4:#EEEEF1;
+  --line:#E6E6EA;
+  --line-2:#D8D8DE;
+  --line-3:#C4C4CC;
+
+  --ink:#0C0C0F;
+  --ink-2:#2E2E35;
+  --ink-3:#55555F;
+  --ink-4:#7A7A85;
+  --ink-5:#9C9CA6;
+
+  /* brand — precise accent only */
+  --red:#CC0000;
+  --red-2:#E31837;
+  --red-ink:#A30000;
+  --red-wash:#FFF3F3;
+  --red-line:#F5C9C9;
+
+  /* semantic */
+  --ok:#0A7D55;
+  --ok-wash:#EDFAF4;
+  --ok-line:#B9E4D3;
+  --hold:#9A5B00;
+  --hold-2:#C97A00;
+  --hold-wash:#FFF7E8;
+  --hold-line:#F0D7A8;
+  --info:#2B5ED6;
+  --info-wash:#F0F4FE;
+
+  /* type scale */
+  --t-11:11px; --t-12:12px; --t-13:13px; --t-14:14px;
+  --t-16:16px; --t-20:20px; --t-26:26px; --t-34:34px;
+
+  /* geometry */
+  --r-xs:5px; --r-sm:7px; --r-md:10px; --r-lg:14px;
+  --rail-w:236px;
+  --stream-w:396px;
+
+  /* motion */
+  --fast:140ms;
+  --base:210ms;
+  --slow:320ms;
+  --spring:cubic-bezier(.34,1.28,.42,1);
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --linear:cubic-bezier(.4,0,.2,1);
+
+  --shadow-1:0 1px 2px rgba(12,12,15,.05);
+  --shadow-2:0 2px 4px rgba(12,12,15,.04), 0 8px 24px -12px rgba(12,12,15,.16);
+  --shadow-3:0 4px 8px rgba(12,12,15,.05), 0 18px 48px -20px rgba(12,12,15,.28);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   02 · RESET + BASE
+   ═══════════════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:var(--t-14);
+  line-height:1.5;
+  color:var(--ink-2);
+  background:var(--paper-3);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-feature-settings:'cv05' 1,'ss03' 1;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+a{color:inherit}
+svg{display:block}
+::selection{background:#FFD6D6;color:var(--ink)}
+
+.mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-feature-settings:'zero' 1}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:3px}
+
+/* scrollbars */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--line-3);background-clip:content-box;border:3px solid transparent}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   03 · APP SHELL + LEFT RAIL
+   ═══════════════════════════════════════════════════════════════════════ */
+.app{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);min-height:100vh}
+
+.rail{
+  background:var(--paper);
+  border-right:1px solid var(--line);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 18px 16px}
+.brand-mark{
+  width:30px;height:30px;border-radius:var(--r-sm);flex:none;
+  background:var(--red);color:#fff;display:grid;place-items:center;
+  font-weight:700;font-size:13px;letter-spacing:-.04em;
+  box-shadow:inset 0 -1px 0 rgba(0,0,0,.18);
+}
+.brand-name{font-size:var(--t-13);font-weight:600;letter-spacing:-.012em;color:var(--ink);line-height:1.2}
+.brand-sub{font-size:10px;font-weight:500;color:var(--ink-5);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+
+.rail-scroll{flex:1;overflow-y:auto;padding:4px 10px 10px}
+.nav-cap{
+  font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-5);padding:16px 8px 7px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:8px 9px;border-radius:var(--r-sm);
+  font-size:var(--t-13);font-weight:500;color:var(--ink-3);
+  text-align:left;position:relative;
+  transition:background var(--fast) var(--ease),color var(--fast) var(--ease);
+}
+.nav-item svg{width:15px;height:15px;flex:none;stroke-width:1.75;color:var(--ink-4);transition:color var(--fast) var(--ease)}
+.nav-item:hover{background:var(--paper-3);color:var(--ink)}
+.nav-item:hover svg{color:var(--ink-3)}
+.nav-item:active{background:var(--paper-4)}
+.nav-item[aria-current="page"]{background:var(--paper-3);color:var(--ink);font-weight:600}
+.nav-item[aria-current="page"] svg{color:var(--red)}
+.nav-item[aria-current="page"]::before{
+  content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);
+  width:3px;height:17px;background:var(--red);border-radius:0 3px 3px 0;
+}
+.nav-kbd{margin-left:auto;font-size:10px;color:var(--ink-5);opacity:0;transition:opacity var(--fast)}
+.nav-item:hover .nav-kbd,.nav-item[aria-current="page"] .nav-kbd{opacity:1}
+
+.rail-foot{border-top:1px solid var(--line);padding:12px}
+.conn-card{
+  display:flex;align-items:center;gap:9px;padding:9px 10px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper-2);
+  width:100%;text-align:left;transition:border-color var(--fast) var(--ease),background var(--fast) var(--ease);
+}
+.conn-card:hover{border-color:var(--line-2);background:var(--paper-3)}
+.conn-led{width:7px;height:7px;border-radius:99px;flex:none;background:var(--ink-5);position:relative}
+.conn-led.on{background:var(--ok)}
+.conn-led.on::after{
+  content:'';position:absolute;inset:-4px;border-radius:99px;border:1px solid var(--ok);
+  opacity:0;animation:led 2.4s var(--ease) infinite;
+}
+.conn-led.bad{background:var(--red-2)}
+@keyframes led{0%{opacity:.55;transform:scale(.6)}70%,100%{opacity:0;transform:scale(1.35)}}
+.conn-t{font-size:var(--t-12);font-weight:550;color:var(--ink);line-height:1.25}
+.conn-s{font-size:10.5px;color:var(--ink-4);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   04 · TOPBAR + PAGE FRAME
+   ═══════════════════════════════════════════════════════════════════════ */
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:30;background:rgba(255,255,255,.88);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+  padding:18px 28px 16px;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+}
+.crumb{font-size:var(--t-11);font-weight:550;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-5);margin-bottom:5px}
+.crumb b{color:var(--red);font-weight:600}
+.page-title{font-size:var(--t-26);font-weight:650;letter-spacing:-.028em;color:var(--ink);line-height:1.1}
+.page-desc{font-size:var(--t-13);color:var(--ink-4);margin-top:5px;max-width:62ch;line-height:1.45}
+.topbar-side{display:flex;align-items:center;gap:8px;padding-bottom:2px}
+
+.page{display:none;padding:22px 28px 64px}
+.page.is-active{display:block;animation:pageIn var(--slow) var(--ease)}
+@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.work{display:grid;grid-template-columns:minmax(0,1fr) var(--stream-w);gap:20px;align-items:start;margin-top:20px}
+@media (max-width:1240px){
+  .work{grid-template-columns:minmax(0,1fr)}
+  :root{--rail-w:210px}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   05 · PRIMITIVES — buttons, inputs, chips, cards
+   ═══════════════════════════════════════════════════════════════════════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:34px;padding:0 13px;border-radius:var(--r-sm);
+  font-size:var(--t-13);font-weight:550;letter-spacing:-.005em;white-space:nowrap;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--ink-2);
+  box-shadow:var(--shadow-1);
+  transition:background var(--fast) var(--ease),border-color var(--fast) var(--ease),
+             color var(--fast) var(--ease),transform var(--fast) var(--spring),box-shadow var(--fast) var(--ease);
+}
+.btn svg{width:14px;height:14px;stroke-width:1.9;flex:none}
+.btn:hover{background:var(--paper-2);border-color:var(--line-3);color:var(--ink)}
+.btn:active{transform:translateY(1px);box-shadow:none;background:var(--paper-3)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;background:var(--paper-3)}
+
+.btn-primary{background:var(--red);border-color:var(--red);color:#fff;box-shadow:0 1px 2px rgba(204,0,0,.24)}
+.btn-primary:hover{background:var(--red-2);border-color:var(--red-2);color:#fff;box-shadow:0 2px 10px -2px rgba(204,0,0,.4)}
+.btn-primary:active{background:#A80000;border-color:#A80000}
+.btn-primary:disabled{background:var(--ink-5);border-color:var(--ink-5);color:#fff;opacity:.4}
+
+.btn-ghost{border-color:transparent;background:transparent;box-shadow:none;color:var(--ink-3)}
+.btn-ghost:hover{background:var(--paper-3);border-color:transparent;color:var(--ink)}
+
+.btn-sm{height:28px;padding:0 10px;font-size:var(--t-12);border-radius:var(--r-xs)}
+.btn-sm svg{width:13px;height:13px}
+.btn-lg{height:40px;padding:0 18px;font-size:var(--t-14)}
+.btn-block{width:100%}
+
+.spin{width:13px;height:13px;border:1.8px solid currentColor;border-right-color:transparent;border-radius:99px;animation:sp .62s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-1)}
+.card-h{padding:15px 18px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.card-t{font-size:var(--t-13);font-weight:600;letter-spacing:-.008em;color:var(--ink)}
+.card-d{font-size:var(--t-12);color:var(--ink-4);margin-top:2px}
+.card-b{padding:18px}
+
+.sec-label{
+  font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-5);
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--line)}
+
+.field{margin-bottom:15px}
+.field:last-child{margin-bottom:0}
+.lbl{display:block;font-size:var(--t-12);font-weight:550;color:var(--ink-2);margin-bottom:6px;letter-spacing:-.003em}
+.lbl .req{color:var(--red);margin-left:2px}
+.hint{font-size:var(--t-11);color:var(--ink-4);margin-top:5px;line-height:1.4}
+
+.inp,.sel,.ta{
+  width:100%;height:36px;padding:0 11px;border-radius:var(--r-sm);
+  border:1px solid var(--line-2);background:var(--paper);color:var(--ink);
+  font-size:var(--t-13);
+  transition:border-color var(--fast) var(--ease),box-shadow var(--fast) var(--ease),background var(--fast) var(--ease);
+}
+.inp::placeholder{color:var(--ink-5)}
+.inp:hover:not(:disabled),.sel:hover:not(:disabled){border-color:var(--line-3)}
+.inp:focus,.sel:focus,.ta:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(204,0,0,.11)}
+.inp:disabled,.sel:disabled,.ta:disabled{background:var(--paper-3);color:var(--ink-5);cursor:not-allowed}
+.sel{
+  appearance:none;padding-right:30px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A7A85' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+.ta{height:auto;padding:10px 11px;resize:vertical;line-height:1.55}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:720px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* segmented control */
+.seg{display:inline-flex;padding:3px;background:var(--paper-3);border:1px solid var(--line);border-radius:9px;gap:2px}
+.seg-btn{
+  display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 13px;border-radius:6px;
+  font-size:var(--t-12);font-weight:550;color:var(--ink-4);
+  transition:background var(--fast) var(--ease),color var(--fast) var(--ease),box-shadow var(--fast) var(--ease);
+}
+.seg-btn svg{width:14px;height:14px;stroke-width:1.9}
+.seg-btn:hover{color:var(--ink-2)}
+.seg-btn[aria-selected="true"]{background:var(--paper);color:var(--ink);box-shadow:var(--shadow-1);font-weight:600}
+.seg-btn[aria-selected="true"] svg{color:var(--red)}
+
+/* tag / chip */
+.tag{
+  display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 8px;border-radius:5px;
+  font-size:var(--t-11);font-weight:550;letter-spacing:-.002em;
+  background:var(--paper-3);color:var(--ink-3);border:1px solid var(--line);
+}
+.tag.red{background:var(--red-wash);color:var(--red-ink);border-color:var(--red-line)}
+.tag.ok{background:var(--ok-wash);color:var(--ok);border-color:var(--ok-line)}
+.tag.hold{background:var(--hold-wash);color:var(--hold);border-color:var(--hold-line)}
+.tag.mono{font-family:'JetBrains Mono',monospace;font-size:10.5px}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   06 · FLOW CANVAS — the node graph
+   ═══════════════════════════════════════════════════════════════════════ */
+.band{
+  background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-1);overflow:hidden;
+}
+.band-h{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:13px 18px;border-bottom:1px solid var(--line);
+  background:linear-gradient(var(--paper),var(--paper-2));
+}
+.band-t{font-size:var(--t-13);font-weight:600;letter-spacing:-.008em;color:var(--ink);display:flex;align-items:center;gap:8px}
+.band-prog{
+  font-family:'JetBrains Mono',monospace;font-size:var(--t-11);color:var(--ink-4);
+  padding:2px 7px;border:1px solid var(--line);border-radius:5px;background:var(--paper-2);
+}
+.legend{display:flex;align-items:center;gap:13px;margin-left:auto;flex-wrap:wrap}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:500;color:var(--ink-4);letter-spacing:.01em}
+.lg i{width:7px;height:7px;border-radius:99px;display:block;background:var(--line-3)}
+.lg.run i{background:var(--red)}
+.lg.done i{background:var(--ok)}
+.lg.hold i{background:var(--hold-2)}
+.lg.skip i{background:transparent;border:1.5px dashed var(--line-3)}
+
+.flow-scroll{
+  overflow-x:auto;overflow-y:hidden;padding:26px 26px 24px;
+  background:
+    linear-gradient(var(--paper-2),var(--paper-2)),
+    radial-gradient(circle at 1px 1px,var(--line) 1px,transparent 0);
+  background-size:auto,17px 17px;
+  background-blend-mode:normal;
+  scroll-behavior:smooth;
+}
+.flow-scroll{background:var(--paper-2)}
+.flow-inner{
+  position:relative;
+  background-image:radial-gradient(circle at 1px 1px,#DEDEE4 1px,transparent 0);
+  background-size:16px 16px;
+  background-position:-1px -1px;
+  padding:18px 4px 14px;
+  border-radius:var(--r-md);
+}
+.flow-track{position:relative;display:flex;align-items:flex-start;gap:34px;width:max-content;padding:0 6px}
+.flow-edges{position:absolute;inset:0;pointer-events:none;overflow:visible}
+
+.edge-track{fill:none;stroke:var(--line-2);stroke-width:1.5;stroke-linecap:round}
+.edge-track.skip{stroke-dasharray:3 5;stroke:var(--line-2);opacity:.75}
+.edge-flow{fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset 700ms var(--linear)}
+.edge-flow.hold{stroke:var(--hold-2)}
+.edge-flow.err{stroke:var(--ink-5)}
+.edge-spark{fill:none;stroke:var(--red);stroke-width:7;stroke-linecap:round;opacity:0}
+.edge-spark.on{opacity:1;animation:spark 1150ms var(--linear) infinite}
+@keyframes spark{
+  0%{stroke-dashoffset:0;opacity:0}
+  12%{opacity:1}
+  88%{opacity:1}
+  100%{stroke-dashoffset:var(--neg-len);opacity:0}
+}
+
+/* node */
+.node{
+  position:relative;width:138px;min-height:112px;flex:none;
+  background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-md);
+  padding:10px 11px 11px;text-align:left;
+  display:flex;flex-direction:column;gap:0;
+  box-shadow:var(--shadow-1);
+  transition:border-color var(--base) var(--ease),box-shadow var(--base) var(--ease),
+             transform var(--base) var(--spring),background var(--base) var(--ease),opacity var(--base) var(--ease);
+}
+.node.low{margin-top:46px}
+.node:hover{border-color:var(--line-3);transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.node:active{transform:translateY(0)}
+.node[aria-pressed="true"]{border-color:var(--ink-3);box-shadow:0 0 0 3px rgba(12,12,15,.06),var(--shadow-2)}
+
+.node-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.node-n{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:500;color:var(--ink-5);letter-spacing:.04em}
+.node-dot{width:7px;height:7px;border-radius:99px;background:var(--line-3);flex:none;transition:background var(--base) var(--ease)}
+
+.node-ico{
+  width:28px;height:28px;border-radius:7px;display:grid;place-items:center;
+  background:var(--paper-3);border:1px solid var(--line);margin-bottom:9px;
+  transition:background var(--base) var(--ease),border-color var(--base) var(--ease),color var(--base) var(--ease);
+  color:var(--ink-4);
+}
+.node-ico svg{width:14px;height:14px;stroke-width:1.85}
+
+.node-l{font-size:var(--t-12);font-weight:600;letter-spacing:-.01em;color:var(--ink-3);line-height:1.25;transition:color var(--base) var(--ease)}
+.node-o{
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;line-height:1.35;color:var(--ink-4);
+  margin-top:5px;min-height:26px;opacity:0;transform:translateY(-2px);
+  transition:opacity var(--base) var(--ease),transform var(--base) var(--ease);
+  overflow:hidden;
+}
+.node-o.show{opacity:1;transform:none}
+
+/* node states */
+.node.run{border-color:var(--red);background:#FFFCFC;box-shadow:0 0 0 3px rgba(204,0,0,.09),0 8px 20px -12px rgba(204,0,0,.5)}
+.node.run .node-dot{background:var(--red);animation:beat 1.05s var(--ease) infinite}
+.node.run .node-ico{background:var(--red-wash);border-color:var(--red-line);color:var(--red)}
+.node.run .node-l{color:var(--ink)}
+.node.run .node-n{color:var(--red-ink)}
+@keyframes beat{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.45);opacity:.55}}
+
+.node.done{border-color:var(--line-2);background:var(--paper)}
+.node.done .node-dot{background:var(--ok)}
+.node.done .node-ico{background:var(--ok-wash);border-color:var(--ok-line);color:var(--ok)}
+.node.done .node-l{color:var(--ink)}
+
+.node.hold{border-color:var(--hold-2);background:#FFFDF8;box-shadow:0 0 0 3px rgba(201,122,0,.12),0 8px 20px -12px rgba(201,122,0,.5);animation:holdPulse 1.9s var(--ease) infinite}
+.node.hold .node-dot{background:var(--hold-2)}
+.node.hold .node-ico{background:var(--hold-wash);border-color:var(--hold-line);color:var(--hold)}
+.node.hold .node-l{color:var(--ink)}
+@keyframes holdPulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(201,122,0,.12),0 8px 20px -12px rgba(201,122,0,.5)}
+  50%{box-shadow:0 0 0 7px rgba(201,122,0,.05),0 8px 20px -12px rgba(201,122,0,.3)}
+}
+
+.node.skip{border-style:dashed;background:var(--paper-2);opacity:.62}
+.node.skip .node-ico{background:transparent;border-style:dashed}
+.node.err{border-color:var(--red-2);background:#FFFAFA}
+.node.err .node-dot{background:var(--red-2)}
+.node.err .node-ico{background:var(--red-wash);border-color:var(--red-line);color:var(--red-2)}
+
+/* halt marker under the approval node */
+.node-halt{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:-23px;
+  display:none;align-items:center;gap:4px;white-space:nowrap;
+  font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--hold);
+}
+.node.hold .node-halt{display:flex}
+.node-halt::before{content:'';width:1px;height:9px;background:var(--hold-line);position:absolute;left:50%;top:-10px}
+
+/* inspector */
+.inspect{border-top:1px solid var(--line);background:var(--paper);display:none}
+.inspect.open{display:block;animation:insIn var(--base) var(--ease)}
+@keyframes insIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.inspect-h{display:flex;align-items:flex-start;gap:12px;padding:14px 18px 12px}
+.inspect-ico{width:30px;height:30px;border-radius:8px;background:var(--paper-3);border:1px solid var(--line);display:grid;place-items:center;color:var(--ink-3);flex:none}
+.inspect-ico svg{width:15px;height:15px;stroke-width:1.8}
+.inspect-t{font-size:var(--t-14);font-weight:600;letter-spacing:-.012em;color:var(--ink);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.inspect-d{font-size:var(--t-12);color:var(--ink-4);margin-top:3px;max-width:70ch;line-height:1.5}
+.inspect-kv{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1px;
+  background:var(--line);border-top:1px solid var(--line);
+}
+.kv{background:var(--paper-2);padding:10px 18px}
+.kv-k{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-5)}
+.kv-v{font-family:'JetBrains Mono',monospace;font-size:var(--t-12);color:var(--ink-2);margin-top:3px;word-break:break-word}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   07 · DROPZONE
+   ═══════════════════════════════════════════════════════════════════════ */
+.drop{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
+  padding:26px 18px;border:1.5px dashed var(--line-2);border-radius:var(--r-md);
+  background:var(--paper-2);width:100%;text-align:center;
+  transition:border-color var(--fast) var(--ease),background var(--fast) var(--ease),transform var(--fast) var(--spring);
+}
+.drop:hover{border-color:var(--line-3);background:var(--paper-3)}
+.drop:active{transform:scale(.995)}
+.drop.over{border-color:var(--red);background:var(--red-wash);border-style:solid}
+.drop.over .drop-ico{background:var(--paper);border-color:var(--red-line);color:var(--red);transform:translateY(-2px)}
+.drop-ico{
+  width:36px;height:36px;border-radius:9px;background:var(--paper);border:1px solid var(--line);
+  display:grid;place-items:center;color:var(--ink-4);
+  transition:all var(--fast) var(--ease);
+}
+.drop-ico svg{width:17px;height:17px;stroke-width:1.7}
+.drop-t{font-size:var(--t-13);font-weight:550;color:var(--ink-2)}
+.drop-t u{color:var(--red);text-decoration:none;font-weight:600;border-bottom:1px solid var(--red-line)}
+.drop-s{font-size:var(--t-11);color:var(--ink-5)}
+
+.file{
+  display:flex;align-items:center;gap:11px;padding:11px 12px;
+  border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--paper);
+  animation:fileIn var(--base) var(--spring);
+}
+@keyframes fileIn{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:none}}
+.file-ico{
+  width:32px;height:32px;border-radius:7px;flex:none;display:grid;place-items:center;
+  background:var(--red-wash);border:1px solid var(--red-line);color:var(--red);
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;text-transform:uppercase;
+}
+.file-n{font-size:var(--t-13);font-weight:550;color:var(--ink);word-break:break-all;line-height:1.3}
+.file-m{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-4);margin-top:2px}
+.file-x{
+  margin-left:auto;width:28px;height:28px;border-radius:var(--r-xs);display:grid;place-items:center;
+  color:var(--ink-4);flex:none;transition:background var(--fast) var(--ease),color var(--fast) var(--ease);
+}
+.file-x svg{width:14px;height:14px;stroke-width:2}
+.file-x:hover{background:var(--red-wash);color:var(--red)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   08 · OPTION LIST (prompts / filters with sub-options)
+   ═══════════════════════════════════════════════════════════════════════ */
+.opts{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--paper)}
+.opts-h{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;
+  background:var(--paper-2);border-bottom:1px solid var(--line);
+}
+.opts-h .t{font-size:var(--t-12);font-weight:600;color:var(--ink-2)}
+.opts-h .c{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-4)}
+.opts-h .acts{margin-left:auto;display:flex;gap:3px}
+.link{
+  font-size:var(--t-11);font-weight:550;color:var(--ink-4);padding:3px 6px;border-radius:4px;
+  transition:background var(--fast) var(--ease),color var(--fast) var(--ease);
+}
+.link:hover{background:var(--paper-4);color:var(--ink)}
+.link:active{background:var(--line)}
+
+.opt{border-bottom:1px solid var(--line)}
+.opt:last-child{border-bottom:none}
+.opt-head{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;
+  transition:background var(--fast) var(--ease);
+}
+.opt-head:hover{background:var(--paper-2)}
+.opt.on .opt-head{background:var(--red-wash)}
+.opt.on .opt-head:hover{background:#FFEBEB}
+
+.cbx{
+  appearance:none;width:15px;height:15px;flex:none;border:1.5px solid var(--line-3);border-radius:4px;
+  background:var(--paper);cursor:pointer;position:relative;
+  transition:background var(--fast) var(--ease),border-color var(--fast) var(--ease);
+}
+.cbx:hover{border-color:var(--ink-4)}
+.cbx:checked{background:var(--red);border-color:var(--red)}
+.cbx:checked::after{
+  content:'';position:absolute;left:4.4px;top:1.4px;width:4px;height:8px;
+  border:solid #fff;border-width:0 1.9px 1.9px 0;transform:rotate(43deg);
+}
+.opt-n{font-size:var(--t-12);font-weight:500;color:var(--ink-2);flex:1;min-width:0}
+.opt.on .opt-n{font-weight:600;color:var(--ink)}
+.opt-c{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-5);
+  padding:1px 5px;border-radius:4px;background:var(--paper-3);border:1px solid var(--line);
+}
+.opt.on .opt-c{background:var(--paper);border-color:var(--red-line);color:var(--red-ink)}
+.opt-chev{color:var(--ink-5);transition:transform var(--base) var(--ease);flex:none}
+.opt-chev svg{width:13px;height:13px;stroke-width:2}
+.opt.on .opt-chev{transform:rotate(180deg)}
+
+.opt-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--base) var(--ease)}
+.opt.on .opt-body{grid-template-rows:1fr}
+.opt-body>div{overflow:hidden}
+.opt-in{padding:2px 12px 12px 37px;display:flex;flex-wrap:wrap;gap:5px}
+.subchip{
+  font-size:var(--t-11);font-weight:500;padding:4px 9px;border-radius:99px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+  transition:all var(--fast) var(--ease);
+}
+.subchip:hover{border-color:var(--ink-4);color:var(--ink);background:var(--paper-2)}
+.subchip:active{transform:scale(.96)}
+.subchip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:550}
+.subchip[aria-pressed="true"]:hover{background:var(--ink-2);border-color:var(--ink-2)}
+.sub-acts{display:flex;gap:2px;width:100%;margin-top:3px}
+
+.empty{padding:26px 18px;text-align:center;font-size:var(--t-12);color:var(--ink-5);line-height:1.5}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   09 · ACTIVITY STREAM
+   ═══════════════════════════════════════════════════════════════════════ */
+.stream{position:sticky;top:96px;display:flex;flex-direction:column;max-height:calc(100vh - 120px)}
+@media (max-width:1240px){.stream{position:static;max-height:none}}
+.stream-h{
+  display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(var(--paper),var(--paper-2));border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.stream-t{font-size:var(--t-12);font-weight:600;letter-spacing:-.006em;color:var(--ink);display:flex;align-items:center;gap:7px}
+.live{
+  display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-5);
+}
+.live i{width:6px;height:6px;border-radius:99px;background:var(--line-3);display:block}
+.live.on{color:var(--red-ink)}
+.live.on i{background:var(--red);animation:beat 1.05s var(--ease) infinite}
+
+.stream-b{flex:1;overflow-y:auto;padding:16px 16px 18px;min-height:300px;scroll-behavior:smooth}
+
+.ev{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;position:relative;padding-bottom:15px}
+.ev:last-child{padding-bottom:2px}
+.ev-gut{display:flex;justify-content:center;position:relative}
+.ev-gut::before{
+  content:'';position:absolute;top:15px;bottom:-15px;width:1px;background:var(--line);left:50%;
+}
+.ev:last-child .ev-gut::before{display:none}
+.ev-dot{
+  width:9px;height:9px;border-radius:99px;background:var(--paper);border:1.75px solid var(--line-3);
+  margin-top:4px;flex:none;position:relative;z-index:1;
+}
+.ev.run .ev-dot{border-color:var(--red);background:var(--red-wash)}
+.ev.done .ev-dot{border-color:var(--ok);background:var(--ok)}
+.ev.hold .ev-dot{border-color:var(--hold-2);background:var(--hold-wash)}
+.ev.err .ev-dot{border-color:var(--red-2);background:var(--red-2)}
+.ev.info .ev-dot{border-color:var(--line-3);background:var(--paper-4)}
+
+.ev-in{min-width:0;animation:evIn var(--base) var(--ease)}
+@keyframes evIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ev-top{display:flex;align-items:baseline;gap:8px}
+.ev-t{font-size:var(--t-12);font-weight:600;color:var(--ink);letter-spacing:-.006em;line-height:1.35}
+.ev-time{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-5);margin-left:auto;flex:none;padding-top:1px}
+.ev-d{font-size:var(--t-12);color:var(--ink-4);line-height:1.5;margin-top:2px}
+.ev-d b{color:var(--ink-2);font-weight:600}
+
+/* typing indicator */
+.typing{display:inline-flex;align-items:center;gap:4px;height:16px;margin-top:3px}
+.typing i{width:4px;height:4px;border-radius:99px;background:var(--ink-5);display:block;animation:ty 1.25s var(--ease) infinite}
+.typing i:nth-child(2){animation-delay:.16s}
+.typing i:nth-child(3){animation-delay:.32s}
+@keyframes ty{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* result cards inside stream */
+.res{margin-top:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper-2);overflow:hidden}
+.res-h{
+  padding:6px 10px;border-bottom:1px solid var(--line);background:var(--paper);
+  font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-5);
+  display:flex;align-items:center;gap:6px;
+}
+.res-b{padding:9px 10px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:1px;background:var(--line)}
+.metric{background:var(--paper-2);padding:8px 10px}
+.metric .n{font-size:var(--t-16);font-weight:650;letter-spacing:-.026em;color:var(--ink);line-height:1.1;font-variant-numeric:tabular-nums}
+.metric .k{font-size:9.5px;font-weight:550;color:var(--ink-5);margin-top:2px;letter-spacing:.02em}
+.kvrow{display:flex;gap:8px;font-size:var(--t-11);padding:2.5px 0;align-items:baseline}
+.kvrow .k{color:var(--ink-5);min-width:74px;flex:none;font-weight:500}
+.kvrow .v{font-family:'JetBrains Mono',monospace;color:var(--ink-2);word-break:break-all;font-size:10.5px}
+
+/* approval card */
+.approve{
+  margin-top:9px;border:1px solid var(--hold-line);border-radius:var(--r-md);
+  background:var(--hold-wash);overflow:hidden;
+  box-shadow:0 6px 20px -14px rgba(201,122,0,.7);
+  animation:apIn var(--slow) var(--spring);
+}
+@keyframes apIn{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
+.approve-h{padding:10px 12px;border-bottom:1px solid var(--hold-line);display:flex;align-items:center;gap:8px}
+.approve-h svg{width:14px;height:14px;stroke-width:2;color:var(--hold)}
+.approve-h .t{font-size:var(--t-12);font-weight:650;color:#6B4000;letter-spacing:-.006em}
+.approve-b{padding:10px 12px;background:var(--paper)}
+.approve-f{padding:10px 12px;display:flex;gap:6px;background:var(--paper);border-top:1px solid var(--line)}
+.approve-f .btn{flex:1}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:#fff;box-shadow:0 1px 2px rgba(10,125,85,.22)}
+.btn-ok:hover{background:#096847;border-color:#096847;color:#fff}
+.btn-danger{color:var(--red);border-color:var(--red-line);background:var(--paper)}
+.btn-danger:hover{background:var(--red-wash);border-color:var(--red);color:var(--red)}
+
+/* resume bar */
+.resume{
+  display:none;align-items:center;gap:11px;padding:11px 14px;margin-top:14px;
+  border:1px solid var(--hold-line);background:var(--hold-wash);border-radius:var(--r-md);
+  animation:evIn var(--base) var(--ease);
+}
+.resume.on{display:flex}
+.resume .t{font-size:var(--t-12);font-weight:600;color:#6B4000}
+.resume .s{font-size:var(--t-11);color:var(--hold);margin-top:1px}
+.resume .acts{margin-left:auto;display:flex;gap:6px;flex:none}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10 · TABLES (mapping preview)
+   ═══════════════════════════════════════════════════════════════════════ */
+.tbl-wrap{border:1px solid var(--line);border-radius:var(--r-md);overflow:auto;max-height:430px;background:var(--paper)}
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--t-12)}
+.tbl thead th{
+  position:sticky;top:0;z-index:2;background:var(--paper-2);
+  text-align:left;padding:8px 12px;font-size:9.5px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-5);border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.tbl tbody td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:background var(--fast) var(--ease)}
+.tbl tbody tr:hover{background:var(--paper-2)}
+.tbl td.m{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-3)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11 · SQL EDITOR
+   ═══════════════════════════════════════════════════════════════════════ */
+.sql{border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;background:var(--paper);transition:border-color var(--fast) var(--ease),box-shadow var(--fast) var(--ease)}
+.sql:focus-within{border-color:var(--red);box-shadow:0 0 0 3px rgba(204,0,0,.11)}
+.sql-h{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--paper-2);
+  border-bottom:1px solid var(--line);
+}
+.sql-h .t{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-4)}
+.sql-h .acts{margin-left:auto;display:flex;gap:4px}
+.sql-body{display:grid;grid-template-columns:44px minmax(0,1fr);background:var(--paper)}
+.sql-nums{
+  padding:11px 8px 11px 0;text-align:right;background:var(--paper-2);border-right:1px solid var(--line);
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.65;color:var(--ink-5);
+  overflow:hidden;user-select:none;
+}
+.sql-ta{
+  border:none;outline:none;resize:vertical;min-height:250px;padding:11px 12px;
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.65;
+  color:var(--ink);background:var(--paper);tab-size:2;white-space:pre;overflow-x:auto;
+}
+.sql-ta::placeholder{color:var(--ink-5)}
+.sql-f{
+  display:flex;align-items:center;gap:12px;padding:6px 10px;background:var(--paper-2);
+  border-top:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-5);
+}
+.sql-f .ok{color:var(--ok)}
+.sql-f .bad{color:var(--red)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12 · SOURCE PICKER (upload / sharepoint / database)
+   ═══════════════════════════════════════════════════════════════════════ */
+.srcgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+@media (max-width:620px){.srcgrid{grid-template-columns:1fr}}
+.src{
+  display:flex;flex-direction:column;gap:3px;padding:10px 11px;text-align:left;
+  border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--paper);
+  transition:all var(--fast) var(--ease);
+}
+.src svg{width:15px;height:15px;stroke-width:1.8;color:var(--ink-4);margin-bottom:3px;transition:color var(--fast)}
+.src .t{font-size:var(--t-12);font-weight:600;color:var(--ink-2)}
+.src .s{font-size:10.5px;color:var(--ink-5);line-height:1.35}
+.src:hover{border-color:var(--line-3);background:var(--paper-2)}
+.src[aria-pressed="true"]{border-color:var(--red);background:var(--red-wash)}
+.src[aria-pressed="true"] svg{color:var(--red)}
+.src[aria-pressed="true"] .t{color:var(--ink)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   13 · TOASTS
+   ═══════════════════════════════════════════════════════════════════════ */
+.toasts{position:fixed;right:18px;bottom:18px;z-index:100;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  display:flex;align-items:center;gap:9px;padding:10px 13px;min-width:250px;max-width:400px;
+  background:var(--ink);color:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-3);
+  font-size:var(--t-12);font-weight:500;pointer-events:auto;
+  animation:toastIn var(--base) var(--spring);
+}
+.toast svg{width:15px;height:15px;stroke-width:2;flex:none}
+.toast.ok svg{color:#4ADE9A}
+.toast.err svg{color:#FF8888}
+.toast.out{animation:toastOut var(--base) var(--ease) forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(14px)}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   14 · REDUCED MOTION
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;scroll-behavior:auto !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ══════════════════ LEFT RAIL ══════════════════ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div>
+        <div class="brand-name">MSTR Report Builder</div>
+        <div class="brand-sub">CVS Health · Internal</div>
+      </div>
+    </div>
+
+    <div class="rail-scroll">
+      <div class="nav-cap">Create</div>
+      <button class="nav-item" data-page="new" aria-current="page">
+        <i data-lucide="file-plus-2"></i><span>New Report</span><span class="nav-kbd mono">1</span>
+      </button>
+      <button class="nav-item" data-page="map">
+        <i data-lucide="table-2"></i><span>Generate Mapping</span><span class="nav-kbd mono">2</span>
+      </button>
+      <button class="nav-item" data-page="sql">
+        <i data-lucide="terminal"></i><span>Free SQL Report</span><span class="nav-kbd mono">3</span>
+      </button>
+
+      <div class="nav-cap">Environment</div>
+      <button class="nav-item" data-page="conn">
+        <i data-lucide="plug"></i><span>MSTR Connection</span><span class="nav-kbd mono">4</span>
+      </button>
+    </div>
+
+    <div class="rail-foot">
+      <button class="conn-card" data-page="conn">
+        <span class="conn-led" id="railLed"></span>
+        <span>
+          <span class="conn-t" id="railProj">Not configured</span>
+          <span class="conn-s" id="railHost">Set up a connection</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════ MAIN ══════════════════ -->
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <div class="crumb">MSTR Report Builder <b>/</b> <span id="crumb">New Report</span></div>
+        <h1 class="page-title" id="pageTitle">New Report</h1>
+        <p class="page-desc" id="pageDesc">Turn a business requirements document into a published MicroStrategy report, or build one directly from an existing mapping file.</p>
+      </div>
+      <div class="topbar-side" id="topActions"></div>
+    </header>
+
+    <!-- ─────────── PAGE: NEW REPORT ─────────── -->
+    <section class="page is-active" id="page-new">
+      <div class="band">
+        <div class="band-h">
+          <div class="band-t"><i data-lucide="workflow" style="width:15px;height:15px;stroke-width:1.9;color:var(--ink-4)"></i> Build Pipeline</div>
+          <div class="band-prog" id="progNew">0 / 9 stages</div>
+          <div class="legend">
+            <span class="lg"><i></i>Idle</span>
+            <span class="lg run"><i></i>Running</span>
+            <span class="lg done"><i></i>Complete</span>
+            <span class="lg hold"><i></i>Awaiting human</span>
+            <span class="lg skip"><i></i>Skipped</span>
+          </div>
+        </div>
+        <div class="flow-scroll" id="flowScrollNew"><div class="flow-inner"><div class="flow-track" id="flowNew"></div></div></div>
+        <div class="inspect" id="inspectNew"></div>
+      </div>
+
+      <div class="work">
+        <!-- form column -->
+        <div>
+          <div class="card">
+            <div class="card-h">
+              <div style="flex:1">
+                <div class="card-t">Report Configuration</div>
+                <div class="card-d" id="modeDesc">An LLM reads the BRD, infers the report type, and proposes prompts and filters for your approval.</div>
+              </div>
+              <div class="seg" role="tablist" aria-label="Creation mode">
+                <button class="seg-btn" role="tab" aria-selected="true" data-mode="brd"><i data-lucide="sparkles"></i>Upload BRD</button>
+                <button class="seg-btn" role="tab" aria-selected="false" data-mode="mapping"><i data-lucide="file-spreadsheet"></i>Mapping Document</button>
+              </div>
+            </div>
+
+            <div class="card-b">
+              <!-- source -->
+              <div class="sec-label">Source</div>
+              <div class="srcgrid" id="srcGrid">
+                <button class="src" data-src="upload" aria-pressed="true">
+                  <i data-lucide="upload"></i><span class="t">Upload file</span><span class="s">Drag in a local document</span>
+                </button>
+                <button class="src" data-src="sharepoint" aria-pressed="false">
+                  <i data-lucide="folder-symlink"></i><span class="t">SharePoint</span><span class="s">Pull from a team site</span>
+                </button>
+                <button class="src" data-src="database" aria-pressed="false">
+                  <i data-lucide="database"></i><span class="t">Database</span><span class="s">Read a staged BRD table</span>
+                </button>
+              </div>
+
+              <div id="srcPanel"></div>
+
+              <!-- config -->
+              <div class="sec-label" style="margin-top:22px">Report Definition</div>
+              <div id="lockNote" class="hint" style="margin:-6px 0 12px;display:flex;align-items:center;gap:6px;color:var(--ink-4)">
+                <i data-lucide="lock" style="width:12px;height:12px;stroke-width:2"></i>
+                These fields are populated by the parser. Run the build to fill them, or switch to Mapping Document to set them by hand.
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label class="lbl" for="nrName">Report Name<span class="req">*</span></label>
+                  <input class="inp" id="nrName" placeholder="e.g. Rx Dispense Daily — Northeast" autocomplete="off" />
+                </div>
+                <div class="field">
+                  <label class="lbl" for="nrType">Report Type<span class="req">*</span></label>
+                  <select class="sel" id="nrType"></select>
+                </div>
+              </div>
+
+              <div class="grid-2">
+                <div class="field">
+                  <label class="lbl" for="nrTemplate">Template</label>
+                  <select class="sel" id="nrTemplate">
+                    <option>Standard Grid</option><option>Cross-tab</option><option>Dashboard</option>
+                    <option>Graph</option><option>Grid + Graph</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="lbl" for="nrFolder">Output Folder</label>
+                  <input class="inp mono" id="nrFolder" style="font-size:12px" placeholder="/Public Objects/Reports/…" autocomplete="off" />
+                </div>
+              </div>
+
+              <div class="grid-2" style="align-items:start;margin-top:6px">
+                <div><div class="opts" id="nrPrompts"></div></div>
+                <div><div class="opts" id="nrFilters"></div></div>
+              </div>
+
+              <div class="resume" id="nrResume">
+                <i data-lucide="pencil-line" style="width:16px;height:16px;stroke-width:1.9;color:var(--hold)"></i>
+                <div>
+                  <div class="t">Build paused for your edits</div>
+                  <div class="s">Adjust anything above, then resume. The pipeline picks up at Create Object.</div>
+                </div>
+                <div class="acts">
+                  <button class="btn btn-sm" id="nrCancelEdit">Cancel build</button>
+                  <button class="btn btn-sm btn-primary" id="nrResumeBtn"><i data-lucide="play"></i>Resume build</button>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+                <button class="btn btn-lg btn-primary" id="nrBuild"><i data-lucide="play"></i><span>Parse &amp; Build Report</span></button>
+                <button class="btn btn-lg" id="nrReset"><i data-lucide="rotate-ccw"></i>Reset</button>
+                <div style="margin-left:auto;display:flex;align-items:center"><span class="tag mono" id="nrSummary">no selections</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- stream column -->
+        <aside class="card stream" id="streamNew"></aside>
+      </div>
+    </section>
+
+    <!-- ─────────── PAGE: GENERATE MAPPING ─────────── -->
+    <section class="page" id="page-map">
+      <div class="band">
+        <div class="band-h">
+          <div class="band-t"><i data-lucide="workflow" style="width:15px;height:15px;stroke-width:1.9;color:var(--ink-4)"></i> Mapping Pipeline</div>
+          <div class="band-prog" id="progMap">0 / 8 stages</div>
+          <div class="legend">
+            <span class="lg"><i></i>Idle</span>
+            <span class="lg run"><i></i>Running</span>
+            <span class="lg done"><i></i>Complete</span>
+          </div>
+        </div>
+        <div class="flow-scroll" id="flowScrollMap"><div class="flow-inner"><div class="flow-track" id="flowMap"></div></div></div>
+        <div class="inspect" id="inspectMap"></div>
+      </div>
+
+      <div class="work">
+        <div>
+          <div class="card">
+            <div class="card-h">
+              <div style="flex:1">
+                <div class="card-t">Mapping Generator</div>
+                <div class="card-d">Upload an Excel BRD. The model returns a mapping document — not a report — that you can review, download, or send straight into the report builder.</div>
+              </div>
+            </div>
+            <div class="card-b">
+              <div class="sec-label">BRD Workbook</div>
+              <div id="gmDrop"></div>
+
+              <div class="grid-2" style="margin-top:18px">
+                <div class="field">
+                  <label class="lbl" for="gmType">Target Report Type</label>
+                  <select class="sel" id="gmType"></select>
+                  <div class="hint">Seeds the object naming convention. The model still verifies it against the document.</div>
+                </div>
+                <div class="field">
+                  <label class="lbl" for="gmSheet">Sheet</label>
+                  <select class="sel" id="gmSheet">
+                    <option>Auto-detect</option><option>Requirements</option><option>Data Dictionary</option><option>Field Mapping</option>
+                  </select>
+                  <div class="hint">Leave on auto unless the workbook uses a non-standard layout.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:6px;padding-top:16px;border-top:1px solid var(--line)">
+                <button class="btn btn-lg btn-primary" id="gmRun"><i data-lucide="wand-sparkles"></i>Generate Mapping</button>
+                <button class="btn btn-lg" id="gmReset"><i data-lucide="rotate-ccw"></i>Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="gmResultCard" style="margin-top:18px;display:none">
+            <div class="card-h">
+              <div style="flex:1">
+                <div class="card-t">Extracted Mapping <span class="tag mono" id="gmCount" style="margin-left:6px">0 objects</span></div>
+                <div class="card-d">Every row is an MSTR object the builder will resolve or create.</div>
+              </div>
+              <button class="btn btn-sm" id="gmDownload"><i data-lucide="download"></i>Download .csv</button>
+              <button class="btn btn-sm btn-primary" id="gmUse"><i data-lucide="arrow-right"></i>Use to Build Report</button>
+            </div>
+            <div class="card-b" style="padding:14px">
+              <div class="tbl-wrap">
+                <table class="tbl">
+                  <thead><tr>
+                    <th>Source Column</th><th>MSTR Object</th><th>Object Type</th><th>Data Type</th><th>Folder</th><th>Status</th>
+                  </tr></thead>
+                  <tbody id="gmRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="card stream" id="streamMap"></aside>
+      </div>
+    </section>
+
+    <!-- ─────────── PAGE: FREE SQL ─────────── -->
+    <section class="page" id="page-sql">
+      <div class="band">
+        <div class="band-h">
+          <div class="band-t"><i data-lucide="workflow" style="width:15px;height:15px;stroke-width:1.9;color:var(--ink-4)"></i> Freeform SQL Pipeline</div>
+          <div class="band-prog" id="progSql">0 / 6 stages</div>
+          <div class="legend">
+            <span class="lg"><i></i>Idle</span>
+            <span class="lg run"><i></i>Running</span>
+            <span class="lg done"><i></i>Complete</span>
+          </div>
+        </div>
+        <div class="flow-scroll" id="flowScrollSql"><div class="flow-inner"><div class="flow-track" id="flowSql"></div></div></div>
+        <div class="inspect" id="inspectSql"></div>
+      </div>
+
+      <div class="work">
+        <div>
+          <div class="card">
+            <div class="card-h">
+              <div style="flex:1">
+                <div class="card-t">Freeform SQL Report</div>
+                <div class="card-d">Paste a query. Columns become MSTR attributes and metrics automatically; the report is created as a Freeform SQL object.</div>
+              </div>
+            </div>
+            <div class="card-b">
+              <div class="grid-2">
+                <div class="field">
+                  <label class="lbl" for="sqName">Report Name<span class="req">*</span></label>
+                  <input class="inp" id="sqName" placeholder="e.g. Ad-hoc Script Volume by Store" autocomplete="off" />
+                </div>
+                <div class="field">
+                  <label class="lbl" for="sqDb">Database Instance</label>
+                  <select class="sel" id="sqDb">
+                    <option>EDW_PROD</option><option>EDW_QA</option><option>PHARMACY_MART</option>
+                    <option>RETAIL_MART</option><option>CORAM_DW</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="lbl" for="sqFolder">Output Folder</label>
+                <input class="inp mono" id="sqFolder" style="font-size:12px" value="/Public Objects/Reports/Ad-hoc" autocomplete="off" />
+              </div>
+
+              <div class="field">
+                <label class="lbl" for="sqEditor">SQL Statement<span class="req">*</span></label>
+                <div class="sql">
+                  <div class="sql-h">
+                    <span class="t">freeform.sql</span>
+                    <div class="acts">
+                      <button class="btn btn-sm btn-ghost" id="sqSample"><i data-lucide="file-code-2"></i>Sample</button>
+                      <button class="btn btn-sm btn-ghost" id="sqFormat"><i data-lucide="align-left"></i>Format</button>
+                      <button class="btn btn-sm btn-ghost" id="sqValidate"><i data-lucide="check-check"></i>Validate</button>
+                    </div>
+                  </div>
+                  <div class="sql-body">
+                    <div class="sql-nums mono" id="sqNums">1</div>
+                    <textarea class="sql-ta" id="sqEditor" spellcheck="false" placeholder="SELECT …"></textarea>
+                  </div>
+                  <div class="sql-f">
+                    <span id="sqStat">0 lines · 0 chars</span>
+                    <span id="sqCheck">not validated</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:6px;padding-top:16px;border-top:1px solid var(--line)">
+                <button class="btn btn-lg btn-primary" id="sqBuild"><i data-lucide="play"></i>Build SQL Report</button>
+                <button class="btn btn-lg" id="sqReset"><i data-lucide="rotate-ccw"></i>Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="card stream" id="streamSql"></aside>
+      </div>
+    </section>
+
+    <!-- ─────────── PAGE: CONNECTION ─────────── -->
+    <section class="page" id="page-conn">
+      <div class="work" style="margin-top:0;grid-template-columns:minmax(0,1fr) 360px">
+        <div class="card">
+          <div class="card-h">
+            <div style="flex:1">
+              <div class="card-t">MicroStrategy Environment</div>
+              <div class="card-d">Stored locally in this browser. Credentials never leave the machine.</div>
+            </div>
+            <span class="tag mono" id="connState">unsaved</span>
+          </div>
+          <div class="card-b">
+            <div class="sec-label">Endpoint</div>
+            <div class="field">
+              <label class="lbl" for="cLibrary">Library URL<span class="req">*</span></label>
+              <input class="inp mono" id="cLibrary" style="font-size:12px" placeholder="https://mstr.cvshealth.com/MicroStrategyLibrary" autocomplete="off" />
+              <div class="hint">Base URL of the Library web application, without a trailing slash.</div>
+            </div>
+            <div class="grid-3">
+              <div class="field" style="grid-column:span 2">
+                <label class="lbl" for="cServer">Intelligence Server<span class="req">*</span></label>
+                <input class="inp mono" id="cServer" style="font-size:12px" placeholder="mstr-isrv-prod01" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label class="lbl" for="cPort">Port</label>
+                <input class="inp mono" id="cPort" style="font-size:12px" value="34952" inputmode="numeric" autocomplete="off" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="lbl" for="cProject">Project Name<span class="req">*</span></label>
+              <input class="inp" id="cProject" placeholder="CVS Enterprise Analytics" autocomplete="off" />
+            </div>
+
+            <div class="sec-label" style="margin-top:22px">Authentication</div>
+            <div class="field">
+              <label class="lbl" for="cAuth">Auth Mode</label>
+              <select class="sel" id="cAuth">
+                <option>Standard</option><option>LDAP</option><option>SAML</option><option>OAuth</option><option>API Token</option>
+              </select>
+            </div>
+            <div id="authFields"></div>
+
+            <div class="sec-label" style="margin-top:22px">Defaults</div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="lbl" for="cDb">Database Instance</label>
+                <input class="inp" id="cDb" placeholder="EDW_PROD" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label class="lbl" for="cDsn">DSN</label>
+                <input class="inp mono" id="cDsn" style="font-size:12px" placeholder="EDW_TERADATA_PROD" autocomplete="off" />
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label class="lbl" for="cFolder">Default Report Folder</label>
+                <input class="inp mono" id="cFolder" style="font-size:12px" value="/Public Objects/Reports" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label class="lbl" for="cTemplate">Default Template</label>
+                <select class="sel" id="cTemplate">
+                  <option>Standard Grid</option><option>Cross-tab</option><option>Dashboard</option>
+                  <option>Graph</option><option>Grid + Graph</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+              <button class="btn btn-lg" id="cTest"><i data-lucide="activity"></i><span>Test Connection</span></button>
+              <button class="btn btn-lg btn-primary" id="cSave"><i data-lucide="save"></i>Save Configuration</button>
+              <button class="btn btn-lg btn-ghost" id="cResetBtn" style="margin-left:auto"><i data-lucide="eraser"></i>Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-h"><div class="card-t">Connection Status</div></div>
+            <div class="card-b" id="connStatus"></div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-h"><div class="card-t">Resolved Endpoint</div></div>
+            <div class="card-b" style="padding:14px 16px" id="connPreview"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   01 · UTILITIES
+   ═══════════════════════════════════════════════════════════════════════ */
+const $  = (s,r)=> (r||document).querySelector(s);
+const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+const RM = window.matchMedia('(prefers-reduced-motion: reduce)');
+const reduced = ()=> RM.matches;
+const wait = ms => new Promise(r=>setTimeout(r, reduced() ? Math.min(ms,60) : ms));
+const icons = ()=>{ try{ window.lucide && lucide.createIcons(); }catch(e){} };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now = ()=> new Date().toLocaleTimeString('en-US',{hour12:false});
+const fmtSize = b => b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(2)+' MB';
+const slug = s => (s||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+const guid = ()=> 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+  const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+}).toUpperCase();
+
+function toast(msg, kind){
+  const t = document.createElement('div');
+  t.className = 'toast '+(kind||'');
+  const ico = kind==='err' ? 'circle-alert' : kind==='ok' ? 'circle-check' : 'info';
+  t.innerHTML = '<i data-lucide="'+ico+'"></i><span>'+esc(msg)+'</span>';
+  $('#toasts').appendChild(t); icons();
+  setTimeout(()=>{ t.classList.add('out'); setTimeout(()=>t.remove(), 260); }, 3000);
+}
+
+function download(name, text, mime){
+  try{
+    const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 400);
+    toast('Downloaded '+name, 'ok');
+  }catch(e){ toast('Download blocked by the browser', 'err'); }
+}
+
+function copy(text, label){
+  const done = ()=> toast((label||'Copied')+' to clipboard', 'ok');
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('Copy unavailable — select manually','err'); }
+    ta.remove();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   02 · DOMAIN DATA — report types, prompts, filters, sub-options
+   ═══════════════════════════════════════════════════════════════════════ */
+const TYPES = {
+  Status:   { label:'Status', prompts:['Date Range Prompt','Store Prompt','Region Prompt','Status Type Prompt'],
+              filters:['Date Filter','Geography Filter','Status Filter','Active/Inactive Filter'],
+              template:'Standard Grid', folder:'/Public Objects/Reports/Status' },
+  Dispense: { label:'Dispense', prompts:['Date Range Prompt','Store Prompt','Region Prompt','Product Prompt','NDC Prompt'],
+              filters:['Date Filter','Geography Filter','Drug Class Filter','Payer Filter','Channel Filter'],
+              template:'Standard Grid', folder:'/Public Objects/Reports/Pharmacy/Dispense' },
+  Demo:     { label:'Demo', prompts:['Date Range Prompt','Region Prompt','Age Group Prompt'],
+              filters:['Date Filter','Geography Filter','Gender Filter','Age Band Filter','Ethnicity Filter'],
+              template:'Cross-tab', folder:'/Public Objects/Reports/Demographics' },
+  Combined: { label:'Combined', prompts:['Date Range Prompt','Store Prompt','Region Prompt','Product Prompt','Status Type Prompt'],
+              filters:['Date Filter','Geography Filter','Status Filter','Drug Class Filter','Payer Filter','Channel Filter'],
+              template:'Dashboard', folder:'/Public Objects/Reports/Combined' },
+  Coram:    { label:'Coram', prompts:['Date Range Prompt','Branch Prompt','Therapy Prompt','Patient Prompt'],
+              filters:['Date Filter','Branch Filter','Therapy Type Filter','Referral Source Filter','Payer Filter'],
+              template:'Standard Grid', folder:'/Public Objects/Reports/Coram' },
+  Inventory:{ label:'Inventory', prompts:['Date Range Prompt','Store Prompt','Warehouse Prompt','Product Prompt'],
+              filters:['Date Filter','Geography Filter','Stock Level Filter','Supplier Filter','Category Filter'],
+              template:'Standard Grid', folder:'/Public Objects/Reports/Inventory' },
+  Financial:{ label:'Financial', prompts:['Date Range Prompt','Region Prompt','Cost Center Prompt','GL Account Prompt'],
+              filters:['Date Filter','Geography Filter','Department Filter','Expense Type Filter','Revenue Filter'],
+              template:'Cross-tab', folder:'/Public Objects/Reports/Financial' },
+  Clinical: { label:'Clinical', prompts:['Date Range Prompt','Store Prompt','Program Prompt','Patient Prompt'],
+              filters:['Date Filter','Geography Filter','Program Filter','Immunization Filter','MTM Filter','Outcome Filter'],
+              template:'Dashboard', folder:'/Public Objects/Reports/Clinical' },
+  Custom:   { label:'Custom', prompts:['Date Range Prompt','Custom Prompt 1','Custom Prompt 2','Custom Prompt 3'],
+              filters:['Date Filter','Custom Filter 1','Custom Filter 2','Custom Filter 3'],
+              template:'Standard Grid', folder:'/Public Objects/Reports/Custom' }
+};
+
+const CUSTOM_P = ['Value List','Single Value','Numeric Range','Hierarchy Node','Free Text','Search Expression'];
+const CUSTOM_F = ['Equals','Not Equals','In List','Not In List','Between','Greater Than','Less Than','Like Pattern'];
+
+const SUB = {
+  /* prompts */
+  'Date Range Prompt':['Yesterday Start/End','Last 7 Days','Last 14 Days','Last 30 Days','Weekly (Mon–Sun)','Bi-Weekly','Monthly Start/End','Quarterly Start/End','MTD','QTD','YTD','Rolling 30 Days','Rolling 60 Days','Rolling 90 Days','Custom Range'],
+  'Store Prompt':['Single Store','Multi-Store','Store Range','By District','By Region','All Stores'],
+  'Region Prompt':['Northeast','Mid-Atlantic','Southeast','Midwest','Southwest','West','By Division','By Market','All Regions'],
+  'Status Type Prompt':['Active','Inactive','Pending','On Hold','Closed','Transferred Out','Remodel','All Statuses'],
+  'Product Prompt':['By NDC','By GPI','By Brand Name','By Generic Name','By Manufacturer','By Package Size','By Form','All Products'],
+  'NDC Prompt':['Single NDC','NDC List Upload','By Labeler Code','By Product Code','By Package Code','11-digit Normalized','All NDCs'],
+  'Age Group Prompt':['0–17','18–34','35–49','50–64','65–74','75+','Pediatric','Geriatric','All Age Groups'],
+  'Branch Prompt':['Single Branch','Multi-Branch','By Area','By Region','By Service Line','All Branches'],
+  'Therapy Prompt':['Infusion','Enteral Nutrition','Parenteral Nutrition','Anti-Infective','Immunoglobulin','Specialty Injectable','Pain Management','All Therapies'],
+  'Patient Prompt':['Single Patient ID','Patient Cohort','New Starts','Active Census','Discharged','Readmitted','All Patients'],
+  'Warehouse Prompt':['Single DC','Multi-DC','By Region','Forward Pick','Bulk Storage','Cold Chain','All Warehouses'],
+  'Cost Center Prompt':['Single Cost Center','Cost Center Group','By Department','By Region','By Business Unit','All Cost Centers'],
+  'GL Account Prompt':['Single Account','Account Range','By Account Type','By Ledger','By Rollup Node','All Accounts'],
+  'Program Prompt':['Immunization','Medication Therapy Management','Adherence Outreach','Diabetes Care','Smoking Cessation','Point-of-Care Testing','All Programs'],
+  'Custom Prompt 1':CUSTOM_P, 'Custom Prompt 2':CUSTOM_P, 'Custom Prompt 3':CUSTOM_P,
+
+  /* filters */
+  'Date Filter':['Yesterday','Last 7 Days','Last 14 Days','Last 30 Days','Current Week','Current Month','Current Quarter','Previous Week','Previous Month','Previous Quarter','MTD','QTD','YTD','Rolling 30','Rolling 60','Rolling 90','Custom'],
+  'Geography Filter':['State','City','Zip Code','Region','District','Area','Market','Division'],
+  'Status Filter':['Active','Inactive','Pending','Suspended','Closed','Transferred','All Statuses'],
+  'Active/Inactive Filter':['Active Only','Inactive Only','Both','Active in Period','Newly Inactive'],
+  'Drug Class Filter':['By GPI Class','By Therapeutic Category','Brand Only','Generic Only','Specialty','Controlled Substance','OTC'],
+  'Payer Filter':['Commercial','Medicare','Medicaid','Cash/Self-Pay','Workers Comp','340B','All Payers'],
+  'Channel Filter':['Retail','Mail Order','Specialty','Long-Term Care','Infusion','Digital/Online','All Channels'],
+  'Gender Filter':['Male','Female','Non-Binary','Undisclosed','All'],
+  'Age Band Filter':['0–17','18–34','35–49','50–64','65–74','75+','All Bands'],
+  'Ethnicity Filter':['Hispanic or Latino','Not Hispanic or Latino','Undisclosed','Multi-Race','All'],
+  'Branch Filter':['Single Branch','Branch Group','By Area','By Region','By Service Line','All Branches'],
+  'Therapy Type Filter':['Infusion','Enteral','Parenteral','Anti-Infective','Immunoglobulin','Specialty Injectable','All Types'],
+  'Referral Source Filter':['Hospital Discharge','Physician Office','Health Plan','Self-Referral','Skilled Nursing Facility','Home Health Agency','All Sources'],
+  'Stock Level Filter':['In Stock','Low Stock','Out of Stock','Overstock','Backordered','On Order','All Levels'],
+  'Supplier Filter':['Primary Wholesaler','Secondary Wholesaler','Direct Manufacturer','Specialty Distributor','Repackager','All Suppliers'],
+  'Category Filter':['Rx','OTC','Front Store','Consumables','Durable Medical Equipment','Seasonal','All Categories'],
+  'Department Filter':['Pharmacy','Front Store','Clinical Services','Distribution','Corporate','Technology','All Departments'],
+  'Expense Type Filter':['Payroll','Cost of Goods','Occupancy','Depreciation','Marketing','Professional Fees','All Expenses'],
+  'Revenue Filter':['Rx Revenue','Front Store Revenue','Clinical Services Revenue','Other Income','Net Revenue','Gross Revenue'],
+  'Program Filter':['Immunization','MTM','Adherence','Diabetes Care','Smoking Cessation','Point-of-Care Testing','All Programs'],
+  'Immunization Filter':['Influenza','COVID-19','Shingles','Pneumococcal','Tdap','RSV','Travel Vaccines','All Immunizations'],
+  'MTM Filter':['Comprehensive Medication Review','Targeted Intervention','Adherence Outreach','Prescriber Consult','Completed','Declined'],
+  'Outcome Filter':['Resolved','Improved','No Change','Escalated','Lost to Follow-Up','All Outcomes'],
+  'Custom Filter 1':CUSTOM_F, 'Custom Filter 2':CUSTOM_F, 'Custom Filter 3':CUSTOM_F
+};
+const subsFor = name => SUB[name] || ['Include','Exclude','All Values'];
+
+/* AI "defaults" — what the parser would pick per sub-option group */
+const AI_PICK = {
+  'Date Range Prompt':['Last 30 Days','MTD'], 'Store Prompt':['Multi-Store','By Region'],
+  'Region Prompt':['Northeast','All Regions'], 'Product Prompt':['By GPI','By Brand Name'],
+  'NDC Prompt':['11-digit Normalized'], 'Status Type Prompt':['Active'],
+  'Date Filter':['Last 30 Days'], 'Geography Filter':['Region','District'],
+  'Drug Class Filter':['By Therapeutic Category','Specialty'], 'Payer Filter':['Commercial','Medicare'],
+  'Channel Filter':['Retail','Specialty']
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   03 · PIPELINE DEFINITIONS
+   ═══════════════════════════════════════════════════════════════════════ */
+const STAGES = {
+  brd:[
+    {id:'source', label:'Source', icon:'file-input',  desc:'Accepts the BRD from local upload, a SharePoint site, or a staged database table, then hashes it for traceability.'},
+    {id:'parse',  label:'Parse',  icon:'scan-line',   desc:'Reads workbook sheets, tables, and headings into a normalized document tree. PDFs and Word files go through layout-aware extraction first.'},
+    {id:'extract',label:'Extract',icon:'layers',      desc:'Pulls candidate attributes, metrics, grouping levels, and business rules out of the document tree.'},
+    {id:'detect', label:'Detect Type',icon:'git-branch',desc:'Classifies the request into one of the nine report families using extracted vocabulary and column signatures.'},
+    {id:'prompts',label:'Resolve Prompts',icon:'list-checks',desc:'Maps the detected type to its prompt set and proposes a default answer for each prompt.'},
+    {id:'filters',label:'Resolve Filters',icon:'filter',desc:'Maps the detected type to its filter set and proposes qualification values for each.'},
+    {id:'approve',label:'Human Approval',icon:'user-check',halt:true,desc:'Execution stops here by design. Nothing is written to MicroStrategy until an analyst approves, edits, or rejects the proposed configuration.'},
+    {id:'create', label:'Create Object',icon:'box',   desc:'Creates the report definition, binds prompts and filters, and applies the template through the REST API.'},
+    {id:'publish',label:'Publish',icon:'send',        desc:'Moves the object into the target folder, sets permissions, and registers it in the catalog.'}
+  ],
+  mapping:[
+    {id:'source', label:'Source', icon:'file-input',  desc:'Accepts the pre-built mapping document. No inference runs on the source itself.'},
+    {id:'parse',  label:'Read Mapping',icon:'scan-line',desc:'Reads the mapping rows and validates required columns are present.'},
+    {id:'extract',label:'Bind Objects',icon:'layers', desc:'Resolves every mapping row against existing MSTR schema objects by name and folder path.'},
+    {id:'detect', label:'Type (Manual)',icon:'git-branch',desc:'Report type comes from your selection rather than from classification.'},
+    {id:'prompts',label:'Apply Prompts',icon:'list-checks',desc:'Attaches the prompts you selected, with their sub-option answers.'},
+    {id:'filters',label:'Apply Filters',icon:'filter',desc:'Attaches the filters you selected, with their qualification values.'},
+    {id:'approve',label:'Human Approval',icon:'user-check',skip:true,desc:'Skipped. You authored the mapping, so there is nothing for the model to propose.'},
+    {id:'create', label:'Create Object',icon:'box',   desc:'Creates the report definition and applies the chosen template.'},
+    {id:'publish',label:'Publish',icon:'send',        desc:'Moves the object into the target folder and registers it in the catalog.'}
+  ],
+  gmap:[
+    {id:'source', label:'Source', icon:'file-input',  desc:'Accepts the Excel BRD workbook.'},
+    {id:'parse',  label:'Parse',  icon:'scan-line',   desc:'Reads sheets, merged headers, and data dictionary blocks.'},
+    {id:'extract',label:'Extract',icon:'layers',      desc:'Identifies every source column referenced by the requirements.'},
+    {id:'detect', label:'Classify',icon:'git-branch', desc:'Determines report family so object names follow the right convention.'},
+    {id:'prompts',label:'Infer Prompts',icon:'list-checks',desc:'Suggests the prompt objects the report will need.'},
+    {id:'filters',label:'Infer Filters',icon:'filter',desc:'Suggests the filter objects the report will need.'},
+    {id:'compose',label:'Compose Mapping',icon:'table-2',desc:'Builds the mapping rows: source column, MSTR object, object type, data type, folder.'},
+    {id:'ready',  label:'Download Ready',icon:'download',desc:'Mapping document is complete and can be downloaded or pushed into the report builder.'}
+  ],
+  sql:[
+    {id:'source', label:'SQL Input',icon:'file-input',desc:'Captures the pasted statement and the target database instance.'},
+    {id:'validate',label:'Validate',icon:'scan-line', desc:'Checks syntax, blocks DDL and DML, and confirms the statement is a single SELECT.'},
+    {id:'columns',label:'Resolve Columns',icon:'layers',desc:'Runs a zero-row prepare to read the result set shape, then classifies each column as attribute or metric.'},
+    {id:'bind',   label:'Bind Instance',icon:'database',desc:'Binds the Freeform SQL object to the selected database instance and DSN.'},
+    {id:'create', label:'Create Object',icon:'box',   desc:'Creates the Freeform SQL report definition.'},
+    {id:'publish',label:'Publish',icon:'send',        desc:'Moves the object into the target folder and registers it in the catalog.'}
+  ]
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   04 · FLOW CANVAS COMPONENT
+   ═══════════════════════════════════════════════════════════════════════ */
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+function createFlow(trackEl, scrollEl, inspectEl, progEl, stages){
+  trackEl.innerHTML = '';
+  inspectEl.innerHTML = ''; inspectEl.classList.remove('open');
+
+  const svg = document.createElementNS(SVGNS,'svg');
+  svg.setAttribute('class','flow-edges');
+  svg.setAttribute('aria-hidden','true');
+  trackEl.appendChild(svg);
+
+  const nodes = [], edges = [];
+  let selected = null;
+  const state = {};
+
+  stages.forEach((s,i)=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'node' + (i%2 ? ' low' : '') + (s.skip ? ' skip' : '');
+    b.setAttribute('aria-pressed','false');
+    b.dataset.id = s.id;
+    b.innerHTML =
+      '<span class="node-top"><span class="node-n">'+String(i+1).padStart(2,'0')+'</span><span class="node-dot"></span></span>'+
+      '<span class="node-ico"><i data-lucide="'+s.icon+'"></i></span>'+
+      '<span class="node-l">'+esc(s.label)+'</span>'+
+      '<span class="node-o"></span>'+
+      (s.halt ? '<span class="node-halt"><i data-lucide="hand" style="width:10px;height:10px;stroke-width:2.4"></i>halt</span>' : '');
+    b.addEventListener('click', ()=> select(i));
+    trackEl.appendChild(b);
+    nodes.push(b);
+    state[s.id] = { status: s.skip ? 'skip' : 'idle', out:'', meta:{} };
+  });
+
+  /* edges */
+  for(let i=0;i<stages.length-1;i++){
+    const g = document.createElementNS(SVGNS,'g');
+    const track = document.createElementNS(SVGNS,'path'); track.setAttribute('class','edge-track');
+    const flow  = document.createElementNS(SVGNS,'path'); flow.setAttribute('class','edge-flow');
+    const spark = document.createElementNS(SVGNS,'path'); spark.setAttribute('class','edge-spark');
+    g.appendChild(track); g.appendChild(flow); g.appendChild(spark);
+    svg.appendChild(g);
+    if(stages[i].skip || stages[i+1].skip) track.classList.add('skip');
+    edges.push({track, flow, spark, len:0});
+  }
+
+  function layout(){
+    const tr = trackEl.getBoundingClientRect();
+    const w = trackEl.scrollWidth, h = trackEl.offsetHeight;
+    svg.setAttribute('width', w); svg.setAttribute('height', h);
+    svg.setAttribute('viewBox','0 0 '+w+' '+h);
+    for(let i=0;i<edges.length;i++){
+      const a = nodes[i].getBoundingClientRect(), b = nodes[i+1].getBoundingClientRect();
+      const x1 = a.right - tr.left, y1 = a.top - tr.top + a.height/2;
+      const x2 = b.left  - tr.left, y2 = b.top - tr.top + b.height/2;
+      const dx = Math.max(18,(x2-x1)*0.55);
+      const d = 'M '+x1+' '+y1+' C '+(x1+dx)+' '+y1+', '+(x2-dx)+' '+y2+', '+x2+' '+y2;
+      const e = edges[i];
+      e.track.setAttribute('d',d); e.flow.setAttribute('d',d); e.spark.setAttribute('d',d);
+      const L = e.flow.getTotalLength() || 1;
+      e.len = L;
+      e.flow.style.strokeDasharray = L;
+      if(!e.flow.dataset.on) e.flow.style.strokeDashoffset = L;
+      e.spark.style.strokeDasharray = '2 '+L;
+      e.spark.style.setProperty('--neg-len', (-L)+'px');
+    }
+  }
+  requestAnimationFrame(layout);
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(()=>layout());
+    ro.observe(trackEl);
+  }
+  window.addEventListener('resize', layout);
+  setTimeout(layout, 350); /* after webfont swap */
+
+  function centerOn(i){
+    const n = nodes[i]; if(!n) return;
+    const left = n.offsetLeft - scrollEl.clientWidth/2 + n.offsetWidth/2;
+    scrollEl.scrollTo({left: Math.max(0,left), behavior: reduced() ? 'auto' : 'smooth'});
+  }
+
+  function progress(){
+    const done = stages.filter(s => ['done','skip'].includes(state[s.id].status)).length;
+    if(progEl) progEl.textContent = done+' / '+stages.length+' stages';
+  }
+
+  function set(id, status, out, meta){
+    const i = stages.findIndex(s=>s.id===id); if(i<0) return;
+    const n = nodes[i];
+    n.classList.remove('run','done','hold','err','skip');
+    if(status!=='idle') n.classList.add(status);
+    state[id].status = status;
+    if(out !== undefined){ state[id].out = out; }
+    if(meta) state[id].meta = Object.assign(state[id].meta||{}, meta);
+    const o = $('.node-o', n);
+    o.textContent = state[id].out || '';
+    o.classList.toggle('show', !!state[id].out);
+    if(status==='run' || status==='hold') centerOn(i);
+    /* spark loops on the incoming edge while a node is working */
+    const inc = edges[i-1];
+    if(inc){
+      if(status==='run'){ inc.spark.classList.add('on'); }
+      else { inc.spark.classList.remove('on'); }
+    }
+    progress();
+    if(selected === i) renderInspect(i);
+  }
+
+  function fill(i, tone){
+    const e = edges[i]; if(!e) return;
+    e.flow.classList.remove('hold','err');
+    if(tone) e.flow.classList.add(tone);
+    e.flow.dataset.on = '1';
+    e.flow.style.strokeDashoffset = '0';
+  }
+
+  function reset(){
+    stages.forEach((s,i)=>{
+      state[s.id] = { status: s.skip?'skip':'idle', out:'', meta:{} };
+      nodes[i].classList.remove('run','done','hold','err');
+      if(s.skip) nodes[i].classList.add('skip');
+      const o = $('.node-o', nodes[i]); o.textContent=''; o.classList.remove('show');
+    });
+    edges.forEach(e=>{
+      e.flow.classList.remove('hold','err');
+      delete e.flow.dataset.on;
+      e.flow.style.transition = 'none';
+      e.flow.style.strokeDashoffset = e.len;
+      void e.flow.getBoundingClientRect();
+      e.flow.style.transition = '';
+      e.spark.classList.remove('on');
+    });
+    inspectEl.classList.remove('open');
+    nodes.forEach(n=>n.setAttribute('aria-pressed','false'));
+    selected = null;
+    progress();
+    scrollEl.scrollTo({left:0, behavior: reduced()?'auto':'smooth'});
+  }
+
+  function renderInspect(i){
+    const s = stages[i], st = state[s.id];
+    const badge = {
+      idle:['Idle',''], run:['Running','red'], done:['Complete','ok'],
+      hold:['Awaiting approval','hold'], err:['Halted',''], skip:['Skipped','']
+    }[st.status] || ['Idle',''];
+    const meta = Object.assign({ Stage: String(i+1)+' of '+stages.length, Status: badge[0] }, st.meta);
+    if(st.out) meta.Output = st.out;
+    inspectEl.innerHTML =
+      '<div class="inspect-h">'+
+        '<span class="inspect-ico"><i data-lucide="'+s.icon+'"></i></span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="inspect-t">'+esc(s.label)+' <span class="tag '+badge[1]+'">'+esc(badge[0])+'</span>'+
+            '<span class="tag mono">'+esc(s.id)+'</span></div>'+
+          '<p class="inspect-d">'+esc(s.desc)+'</p>'+
+        '</div>'+
+        '<button class="btn btn-sm btn-ghost" data-close><i data-lucide="x"></i></button>'+
+      '</div>'+
+      '<div class="inspect-kv">'+
+        Object.keys(meta).map(k=>'<div class="kv"><div class="kv-k">'+esc(k)+'</div><div class="kv-v">'+esc(meta[k])+'</div></div>').join('')+
+      '</div>';
+    inspectEl.classList.add('open');
+    $('[data-close]', inspectEl).addEventListener('click', ()=>{
+      inspectEl.classList.remove('open');
+      nodes.forEach(n=>n.setAttribute('aria-pressed','false'));
+      selected = null;
+    });
+    icons();
+  }
+
+  function select(i){
+    if(selected === i){
+      inspectEl.classList.remove('open');
+      nodes[i].setAttribute('aria-pressed','false');
+      selected = null; return;
+    }
+    nodes.forEach((n,k)=>n.setAttribute('aria-pressed', k===i ? 'true':'false'));
+    selected = i; renderInspect(i);
+  }
+
+  icons(); progress();
+  return { set, fill, reset, layout, centerOn, state, stages,
+           idx: id => stages.findIndex(s=>s.id===id) };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   05 · ACTIVITY STREAM COMPONENT
+   ═══════════════════════════════════════════════════════════════════════ */
+function createStream(host, emptyMsg){
+  host.innerHTML =
+    '<div class="stream-h">'+
+      '<div class="stream-t"><i data-lucide="radio" style="width:14px;height:14px;stroke-width:1.9;color:var(--ink-4)"></i> AI Activity</div>'+
+      '<span class="live" data-live><i></i>idle</span>'+
+      '<button class="btn btn-sm btn-ghost" data-clear style="margin-left:auto"><i data-lucide="trash-2"></i>Clear</button>'+
+    '</div>'+
+    '<div class="stream-b" data-body></div>';
+  const body = $('[data-body]', host), live = $('[data-live]', host);
+  const empty = ()=>{ body.innerHTML = '<div class="empty">'+esc(emptyMsg)+'</div>'; };
+  empty();
+  $('[data-clear]', host).addEventListener('click', ()=>{ empty(); setLive(false); toast('Activity cleared'); });
+  icons();
+
+  let typingEl = null;
+
+  function setLive(on, label){
+    live.classList.toggle('on', !!on);
+    live.innerHTML = '<i></i>'+esc(label || (on?'running':'idle'));
+  }
+  function clearEmpty(){ const e = $('.empty', body); if(e) e.remove(); }
+  function scroll(){ body.scrollTop = body.scrollHeight; }
+
+  async function typing(ms){
+    clearEmpty(); stopTyping();
+    typingEl = document.createElement('div');
+    typingEl.className = 'ev run';
+    typingEl.innerHTML = '<div class="ev-gut"><span class="ev-dot"></span></div>'+
+      '<div class="ev-in"><span class="typing"><i></i><i></i><i></i></span></div>';
+    body.appendChild(typingEl); scroll();
+    await wait(ms || 620);
+  }
+  function stopTyping(){ if(typingEl){ typingEl.remove(); typingEl = null; } }
+
+  /* kind: run | done | hold | err | info */
+  function push(kind, title, desc, extraHTML){
+    clearEmpty(); stopTyping();
+    const d = document.createElement('div');
+    d.className = 'ev '+kind;
+    d.innerHTML = '<div class="ev-gut"><span class="ev-dot"></span></div>'+
+      '<div class="ev-in">'+
+        '<div class="ev-top"><span class="ev-t">'+esc(title)+'</span><time class="ev-time">'+now()+'</time></div>'+
+        (desc ? '<div class="ev-d">'+desc+'</div>' : '')+
+        (extraHTML || '')+
+      '</div>';
+    body.appendChild(d); icons(); scroll();
+    return d;
+  }
+
+  async function step(title, desc, ms, extraHTML){
+    await typing(ms);
+    return push('done', title, desc, extraHTML);
+  }
+
+  return { push, step, typing, stopTyping, setLive, body,
+           reset(){ empty(); setLive(false); } };
+}
+
+/* small HTML builders used inside stream result cards */
+const RES = {
+  chips: (title, arr) => !arr.length ? '' :
+    '<div class="res"><div class="res-h">'+esc(title)+'</div><div class="res-b"><div class="chips">'+
+    arr.map(a=>'<span class="tag">'+esc(a)+'</span>').join('')+'</div></div></div>',
+  metrics: (pairs) =>
+    '<div class="res"><div class="res-b" style="padding:0"><div class="metrics">'+
+    pairs.map(p=>'<div class="metric"><div class="n">'+esc(p[0])+'</div><div class="k">'+esc(p[1])+'</div></div>').join('')+
+    '</div></div></div>',
+  kv: (title, pairs) =>
+    '<div class="res"><div class="res-h">'+esc(title)+'</div><div class="res-b">'+
+    pairs.map(p=>'<div class="kvrow"><span class="k">'+esc(p[0])+'</span><span class="v">'+esc(p[1])+'</span></div>').join('')+
+    '</div></div>'
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   06 · DROPZONE COMPONENT
+   ═══════════════════════════════════════════════════════════════════════ */
+function createDrop(host, opts){
+  const accept = opts.accept || '';
+  const hintText = opts.hint || '';
+  let file = null;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = accept; input.className = 'sr'; input.tabIndex = -1;
+
+  function renderEmpty(){
+    host.innerHTML =
+      '<button type="button" class="drop" data-zone>'+
+        '<span class="drop-ico"><i data-lucide="'+(opts.icon||'upload-cloud')+'"></i></span>'+
+        '<span class="drop-t">Drop a file here or <u>browse</u></span>'+
+        '<span class="drop-s">'+esc(hintText)+'</span>'+
+      '</button>';
+    host.appendChild(input);
+    const zone = $('[data-zone]', host);
+    zone.addEventListener('click', ()=> input.click());
+    ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e=>{
+      e.preventDefault(); e.stopPropagation(); zone.classList.add('over');
+    }));
+    ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e=>{
+      e.preventDefault(); e.stopPropagation();
+      if(ev==='dragleave' && zone.contains(e.relatedTarget)) return;
+      zone.classList.remove('over');
+    }));
+    zone.addEventListener('drop', e=>{
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f) accepted(f);
+    });
+    icons();
+  }
+
+  function renderFile(){
+    const ext = (file.name.split('.').pop()||'?').slice(0,4);
+    host.innerHTML =
+      '<div class="file">'+
+        '<span class="file-ico">'+esc(ext)+'</span>'+
+        '<span style="min-width:0">'+
+          '<span class="file-n">'+esc(file.name)+'</span>'+
+          '<span class="file-m">'+esc(fmtSize(file.size))+' · '+esc(file.source||'local upload')+'</span>'+
+        '</span>'+
+        '<button type="button" class="file-x" data-x aria-label="Remove file"><i data-lucide="x"></i></button>'+
+      '</div>';
+    host.appendChild(input);
+    $('[data-x]', host).addEventListener('click', ()=>{ clear(); toast('File removed'); });
+    icons();
+  }
+
+  function accepted(f){
+    if(accept){
+      const ok = accept.split(',').some(a => f.name.toLowerCase().endsWith(a.trim().toLowerCase()));
+      if(!ok){ toast('Unsupported file type — expected '+accept, 'err'); return; }
+    }
+    file = {name:f.name, size:f.size, source:'local upload'};
+    renderFile(); opts.onChange && opts.onChange(file);
+  }
+
+  input.addEventListener('change', ()=>{ const f = input.files[0]; if(f) accepted(f); input.value=''; });
+
+  function setVirtual(name, size, source){
+    file = {name, size, source};
+    renderFile(); opts.onChange && opts.onChange(file);
+  }
+  function clear(){ file = null; renderEmpty(); opts.onChange && opts.onChange(null); }
+
+  renderEmpty();
+  return { get:()=>file, clear, setVirtual };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   07 · OPTION LIST COMPONENT (prompt / filter pickers with sub-options)
+   ═══════════════════════════════════════════════════════════════════════ */
+function createOptList(host, title, onChange){
+  let names = [], sel = {}; /* name -> Set of sub-options */
+
+  function render(){
+    const chosen = Object.keys(sel).filter(k => names.includes(k));
+    host.innerHTML =
+      '<div class="opts-h">'+
+        '<span class="t">'+esc(title)+'</span>'+
+        '<span class="c">'+chosen.length+'/'+names.length+'</span>'+
+        '<span class="acts">'+
+          '<button type="button" class="link" data-all>All</button>'+
+          '<button type="button" class="link" data-none>None</button>'+
+        '</span>'+
+      '</div>'+
+      (names.length ? names.map(n=>{
+        const on = !!sel[n];
+        const subs = subsFor(n);
+        const picked = on ? sel[n] : [];
+        return '<div class="opt'+(on?' on':'')+'" data-name="'+esc(n)+'">'+
+          '<label class="opt-head">'+
+            '<input type="checkbox" class="cbx" '+(on?'checked':'')+' />'+
+            '<span class="opt-n">'+esc(n)+'</span>'+
+            '<span class="opt-c">'+picked.length+'/'+subs.length+'</span>'+
+            '<span class="opt-chev"><i data-lucide="chevron-down"></i></span>'+
+          '</label>'+
+          '<div class="opt-body"><div><div class="opt-in">'+
+            subs.map(s=>'<button type="button" class="subchip" data-sub="'+esc(s)+'" aria-pressed="'+(picked.indexOf(s)>-1)+'">'+esc(s)+'</button>').join('')+
+            '<span class="sub-acts"><button type="button" class="link" data-suball>Select all</button>'+
+            '<button type="button" class="link" data-subnone>Clear</button></span>'+
+          '</div></div></div>'+
+        '</div>';
+      }).join('') : '<div class="empty">Choose a report type to see its '+esc(title.toLowerCase())+'.</div>');
+    icons();
+    wire();
+  }
+
+  function wire(){
+    const allBtn = $('[data-all]', host), noneBtn = $('[data-none]', host);
+    if(allBtn) allBtn.addEventListener('click', ()=>{ names.forEach(n=>{ if(!sel[n]) sel[n] = []; }); render(); emit(); });
+    if(noneBtn) noneBtn.addEventListener('click', ()=>{ sel = {}; render(); emit(); });
+
+    $$('.opt', host).forEach(opt=>{
+      const name = opt.dataset.name;
+      $('.cbx', opt).addEventListener('change', e=>{
+        if(e.target.checked) sel[name] = sel[name] || [];
+        else delete sel[name];
+        render(); emit();
+      });
+      $$('[data-sub]', opt).forEach(chip=>{
+        chip.addEventListener('click', ()=>{
+          if(!sel[name]) sel[name] = [];
+          const v = chip.dataset.sub, i = sel[name].indexOf(v);
+          if(i>-1) sel[name].splice(i,1); else sel[name].push(v);
+          render(); emit();
+        });
+      });
+      const sa = $('[data-suball]', opt), sn = $('[data-subnone]', opt);
+      if(sa) sa.addEventListener('click', ()=>{ sel[name] = subsFor(name).slice(); render(); emit(); });
+      if(sn) sn.addEventListener('click', ()=>{ sel[name] = []; render(); emit(); });
+    });
+  }
+
+  function emit(){ onChange && onChange(value()); }
+  function value(){
+    const out = {};
+    names.forEach(n=>{ if(sel[n]) out[n] = sel[n].slice(); });
+    return out;
+  }
+  function setNames(list, keep){
+    names = list.slice();
+    if(!keep) sel = {};
+    else Object.keys(sel).forEach(k=>{ if(names.indexOf(k)<0) delete sel[k]; });
+    render();
+  }
+  function setValue(obj){ sel = {}; Object.keys(obj||{}).forEach(k=>{ sel[k] = (obj[k]||[]).slice(); }); render(); emit(); }
+  function setDisabled(on){ $$('input,button', host).forEach(el=>{ el.disabled = !!on; }); host.style.opacity = on ? '.6' : '1'; }
+
+  render();
+  return { setNames, setValue, value, setDisabled,
+           names:()=>names.slice(), count:()=>Object.keys(value()).length };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   08 · ROUTER
+   ═══════════════════════════════════════════════════════════════════════ */
+const PAGE_META = {
+  new:{ t:'New Report', d:'Turn a business requirements document into a published MicroStrategy report, or build one directly from an existing mapping file.' },
+  map:{ t:'Generate Mapping', d:'Extract a reusable mapping document from an Excel BRD. Review the objects, download the file, or hand it straight to the report builder.' },
+  sql:{ t:'Free SQL Report', d:'Publish a Freeform SQL report from a single SELECT statement. Columns are classified into attributes and metrics automatically.' },
+  conn:{ t:'MSTR Connection', d:'Point the builder at an Intelligence Server and project. Settings persist in this browser only.' }
+};
+let currentPage = 'new';
+
+function go(page){
+  if(!PAGE_META[page]) return;
+  currentPage = page;
+  $$('.page').forEach(p=>p.classList.toggle('is-active', p.id === 'page-'+page));
+  $$('.nav-item[data-page]').forEach(b=>{
+    if(b.classList.contains('nav-item')) b.setAttribute('aria-current', b.dataset.page===page ? 'page':'false');
+  });
+  $('#pageTitle').textContent = PAGE_META[page].t;
+  $('#pageDesc').textContent  = PAGE_META[page].d;
+  $('#crumb').textContent     = PAGE_META[page].t;
+  window.scrollTo({top:0, behavior: reduced()?'auto':'smooth'});
+  setTimeout(()=>{ FLOWS.forEach(f=> f && f.layout && f.layout()); }, 60);
+}
+$$('[data-page]').forEach(b=> b.addEventListener('click', ()=> go(b.dataset.page)));
+document.addEventListener('keydown', e=>{
+  if(e.target.matches('input,textarea,select')) return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  const map = {'1':'new','2':'map','3':'sql','4':'conn'};
+  if(map[e.key]) { go(map[e.key]); }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   09 · PAGE — NEW REPORT
+   ═══════════════════════════════════════════════════════════════════════ */
+const FLOWS = [];
+let flowNew;
+
+const nrStream = createStream($('#streamNew'),
+  'Nothing running yet. Attach a source and start a build — every model action shows up here in plain language.');
+
+const nrPrompts = createOptList($('#nrPrompts'), 'Prompts', updateNrSummary);
+const nrFilters = createOptList($('#nrFilters'), 'Filters', updateNrSummary);
+
+let nrMode = 'brd';           /* brd | mapping */
+let nrSource = 'upload';      /* upload | sharepoint | database */
+let nrDrop = null;
+let nrRunning = false;
+let approvalResolve = null;   /* set while the pipeline is halted */
+let nrBuildToken = 0;
+
+/* report type select */
+(function fillTypes(){
+  const opts = '<option value="">Select a type…</option>' +
+    Object.keys(TYPES).map(k=>'<option value="'+k+'">'+esc(TYPES[k].label)+'</option>').join('');
+  $('#nrType').innerHTML = opts;
+  $('#gmType').innerHTML = Object.keys(TYPES).map(k=>'<option value="'+k+'">'+esc(TYPES[k].label)+'</option>').join('');
+  $('#gmType').value = 'Dispense';
+})();
+
+function applyType(key, keepSel){
+  const t = TYPES[key];
+  if(!t){ nrPrompts.setNames([]); nrFilters.setNames([]); return; }
+  nrPrompts.setNames(t.prompts, keepSel);
+  nrFilters.setNames(t.filters, keepSel);
+  $('#nrTemplate').value = t.template;
+  if(!$('#nrFolder').dataset.touched) $('#nrFolder').value = t.folder;
+  updateNrSummary();
+}
+$('#nrType').addEventListener('change', e=> applyType(e.target.value));
+$('#nrFolder').addEventListener('input', e=>{ e.target.dataset.touched = '1'; });
+
+function updateNrSummary(){
+  const p = nrPrompts.value(), f = nrFilters.value();
+  const ps = Object.keys(p).length, fs = Object.keys(f).length;
+  const subs = Object.keys(p).reduce((a,k)=>a+p[k].length,0) + Object.keys(f).reduce((a,k)=>a+f[k].length,0);
+  $('#nrSummary').textContent = (ps+fs) ? (ps+' prompts · '+fs+' filters · '+subs+' values') : 'no selections';
+  syncBuildBtn();
+}
+
+/* ── source panel (upload / sharepoint / database) ── */
+function renderSource(){
+  const p = $('#srcPanel');
+  const accept = nrMode==='brd' ? '.xlsx,.xls,.csv,.pdf,.docx' : '.xlsx,.xls,.csv,.json';
+  const hint   = nrMode==='brd' ? 'XLSX · XLS · CSV · PDF · DOCX — up to 25 MB'
+                                : 'XLSX · XLS · CSV · JSON — a mapping document you already built';
+  if(nrSource === 'upload'){
+    p.innerHTML = '<div id="nrDropHost"></div>';
+    nrDrop = createDrop($('#nrDropHost'), {accept, hint, icon:'upload-cloud', onChange:onSourceChange});
+  } else if(nrSource === 'sharepoint'){
+    p.innerHTML =
+      '<div class="field"><label class="lbl" for="spUrl">SharePoint document URL</label>'+
+      '<div style="display:flex;gap:8px"><input class="inp mono" id="spUrl" style="font-size:12px" '+
+      'value="https://cvshealth.sharepoint.com/sites/RxAnalytics/Shared Documents/BRD/" autocomplete="off" />'+
+      '<button class="btn" id="spFetch" style="flex:none"><i data-lucide="download"></i>Fetch</button></div>'+
+      '<div class="hint">The service account needs read access to the library.</div></div>'+
+      '<div id="nrDropHost"></div>';
+    nrDrop = createDrop($('#nrDropHost'), {accept, hint, onChange:onSourceChange});
+    $('#nrDropHost').style.display = 'none';
+    $('#spFetch').addEventListener('click', async ()=>{
+      const b = $('#spFetch'); const html = b.innerHTML;
+      b.disabled = true; b.innerHTML = '<span class="spin"></span>Fetching';
+      await wait(950);
+      b.disabled = false; b.innerHTML = html; icons();
+      $('#nrDropHost').style.display = '';
+      nrDrop.setVirtual('BRD_Dispense_Daily_v4.xlsx', 486331, 'SharePoint · RxAnalytics');
+      toast('Pulled BRD_Dispense_Daily_v4.xlsx from SharePoint','ok');
+    });
+  } else {
+    p.innerHTML =
+      '<div class="grid-3">'+
+        '<div class="field"><label class="lbl" for="dbConn">Connection</label>'+
+        '<select class="sel" id="dbConn"><option>EDW_PROD</option><option>EDW_QA</option><option>PHARMACY_MART</option></select></div>'+
+        '<div class="field"><label class="lbl" for="dbSchema">Schema</label>'+
+        '<input class="inp mono" id="dbSchema" style="font-size:12px" value="BRD_STAGING" autocomplete="off" /></div>'+
+        '<div class="field"><label class="lbl" for="dbTable">Table</label>'+
+        '<input class="inp mono" id="dbTable" style="font-size:12px" value="REQ_DISPENSE_DAILY" autocomplete="off" /></div>'+
+      '</div>'+
+      '<button class="btn" id="dbFetch"><i data-lucide="database"></i>Load requirements</button>'+
+      '<div id="nrDropHost" style="margin-top:12px"></div>';
+    nrDrop = createDrop($('#nrDropHost'), {accept, hint, onChange:onSourceChange});
+    $('#nrDropHost').style.display = 'none';
+    $('#dbFetch').addEventListener('click', async ()=>{
+      const b = $('#dbFetch'); const html = b.innerHTML;
+      b.disabled = true; b.innerHTML = '<span class="spin"></span>Loading';
+      await wait(900);
+      b.disabled = false; b.innerHTML = html; icons();
+      $('#nrDropHost').style.display = '';
+      const tbl = ($('#dbSchema').value||'BRD_STAGING')+'.'+($('#dbTable').value||'REQ');
+      nrDrop.setVirtual(tbl+'.brd', 128944, 'Database · '+$('#dbConn').value);
+      toast('Loaded '+tbl,'ok');
+    });
+  }
+  icons(); syncBuildBtn();
+}
+function onSourceChange(){ syncBuildBtn(); }
+
+$$('#srcGrid .src').forEach(b=> b.addEventListener('click', ()=>{
+  $$('#srcGrid .src').forEach(x=>x.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true');
+  nrSource = b.dataset.src;
+  renderSource();
+}));
+
+/* ── mode switch ── */
+function setMode(mode){
+  nrMode = mode;
+  $$('.seg-btn[data-mode]').forEach(b=> b.setAttribute('aria-selected', b.dataset.mode===mode ? 'true':'false'));
+  $('#modeDesc').textContent = mode==='brd'
+    ? 'An LLM reads the BRD, infers the report type, and proposes prompts and filters for your approval.'
+    : 'You already have a mapping document. Pick the report definition by hand — no approval gate, it builds straight through.';
+  $('#lockNote').style.display = mode==='brd' ? 'flex' : 'none';
+  $('#nrBuild').querySelector('span').textContent = mode==='brd' ? 'Parse & Build Report' : 'Build Report';
+  setFormLocked(mode==='brd');
+  buildFlow();
+  nrStream.reset();
+  nrStream.push('info', mode==='brd' ? 'BRD mode' : 'Mapping Document mode',
+    mode==='brd'
+      ? 'The pipeline will stop at <b>Human Approval</b> before anything is written to MicroStrategy.'
+      : 'Approval is skipped in this mode. Configure the report below and it builds straight through.');
+  renderSource();
+}
+$$('.seg-btn[data-mode]').forEach(b=> b.addEventListener('click', ()=> setMode(b.dataset.mode)));
+
+function setFormLocked(locked){
+  ['#nrName','#nrType','#nrTemplate','#nrFolder'].forEach(s=>{ $(s).disabled = locked; });
+  nrPrompts.setDisabled(locked); nrFilters.setDisabled(locked);
+  syncBuildBtn();
+}
+
+function buildFlow(){
+  flowNew = createFlow($('#flowNew'), $('#flowScrollNew'), $('#inspectNew'), $('#progNew'),
+                       nrMode==='brd' ? STAGES.brd : STAGES.mapping);
+  FLOWS[0] = flowNew;
+}
+
+function syncBuildBtn(){
+  const hasFile = nrDrop && nrDrop.get();
+  let ok = !!hasFile && !nrRunning;
+  if(nrMode === 'mapping') ok = ok && !!$('#nrName').value.trim() && !!$('#nrType').value;
+  $('#nrBuild').disabled = !ok;
+}
+$('#nrName').addEventListener('input', syncBuildBtn);
+$('#nrType').addEventListener('change', syncBuildBtn);
+
+/* ── the run ── */
+function currentConfig(){
+  const type = $('#nrType').value;
+  return {
+    name: $('#nrName').value.trim(),
+    type, label: TYPES[type] ? TYPES[type].label : '—',
+    template: $('#nrTemplate').value,
+    folder: $('#nrFolder').value.trim(),
+    prompts: nrPrompts.value(),
+    filters: nrFilters.value()
+  };
+}
+function configCard(cfg){
+  const p = Object.keys(cfg.prompts), f = Object.keys(cfg.filters);
+  const fmt = o => Object.keys(o).map(k=> k + (o[k].length ? ' → '+o[k].join(', ') : ' → (any)'));
+  return RES.kv('Proposed configuration', [
+    ['Name', cfg.name || '(unnamed)'],
+    ['Type', cfg.label],
+    ['Template', cfg.template],
+    ['Folder', cfg.folder]
+  ]) +
+  RES.chips('Prompts · '+p.length, fmt(cfg.prompts)) +
+  RES.chips('Filters · '+f.length, fmt(cfg.filters));
+}
+
+async function runBuild(resumeFrom){
+  const token = ++nrBuildToken;
+  const alive = ()=> token === nrBuildToken;
+  nrRunning = true; syncBuildBtn();
+  $('#nrBuild').innerHTML = '<span class="spin"></span><span>Building…</span>';
+  $('#nrReset').disabled = false;
+  nrStream.setLive(true, 'running');
+
+  const f = flowNew;
+  const file = nrDrop && nrDrop.get();
+
+  try{
+    if(!resumeFrom){
+      flowNew.reset();
+      nrStream.reset(); nrStream.setLive(true,'running');
+
+      /* 1 · SOURCE */
+      f.set('source','run');
+      await nrStream.step('Reading source',
+        'Opened <b>'+esc(file.name)+'</b> ('+fmtSize(file.size)+') from '+esc(file.source)+'.', 520);
+      f.set('source','done', file.name.length>18 ? file.name.slice(0,16)+'…' : file.name,
+            {File:file.name, Size:fmtSize(file.size), Origin:file.source, Checksum:'sha256:'+guid().slice(0,12).toLowerCase()});
+      f.fill(0);
+
+      /* 2 · PARSE */
+      f.set('parse','run');
+      await nrStream.step('Parsing document structure',
+        'Normalized 3 sheets and 212 rows into a document tree. Merged headers resolved, 4 footnote blocks ignored.',
+        780, RES.metrics([['3','sheets'],['212','rows'],['18','headers'],['4','notes']]));
+      f.set('parse','done','3 sheets\n212 rows',{Sheets:'Requirements, Data Dictionary, Field Mapping', Rows:'212', Duration:'0.78s'});
+      f.fill(1);
+
+      /* 3 · EXTRACT */
+      f.set('extract','run');
+      await nrStream.step('Extracting report objects',
+        'Found <b>14 attributes</b> and <b>8 metrics</b>, plus 3 grouping levels and 2 business rules.',
+        820, RES.metrics([['14','attributes'],['8','metrics'],['3','groupings'],['2','rules']]));
+      f.set('extract','done','14 attributes\n8 metrics',{Attributes:'14', Metrics:'8', Groupings:'3', Rules:'2'});
+      f.fill(2);
+
+      /* 4 · DETECT */
+      f.set('detect','run');
+      let detected = $('#nrType').value;
+      if(nrMode === 'brd'){
+        detected = detected || 'Dispense';
+        await nrStream.step('Classifying report type',
+          'Vocabulary matched the <b>'+esc(TYPES[detected].label)+'</b> family with 0.94 confidence. Runner-up: Combined (0.41).',
+          760, RES.kv('Classification',[['Type',TYPES[detected].label],['Confidence','0.94'],['Runner-up','Combined · 0.41'],['Signal','NDC, GPI, payer, channel']]));
+        $('#nrType').value = detected;
+        applyType(detected);
+      } else {
+        await nrStream.step('Applying selected type',
+          'Using your selection: <b>'+esc(TYPES[detected].label)+'</b>. No classification needed in mapping mode.', 480);
+      }
+      f.set('detect','done',TYPES[detected].label + (nrMode==='brd'?' · 0.94':' · manual'),
+            {Type:TYPES[detected].label, Source:nrMode==='brd'?'classifier':'user selection', Confidence:nrMode==='brd'?'0.94':'n/a'});
+      f.fill(3);
+
+      /* 5 · PROMPTS */
+      f.set('prompts','run');
+      if(nrMode === 'brd'){
+        const picks = {};
+        TYPES[detected].prompts.forEach(p=>{ picks[p] = (AI_PICK[p] || [subsFor(p)[0]]).slice(); });
+        nrPrompts.setValue(picks);
+      }
+      const pv = nrPrompts.value(), pk = Object.keys(pv);
+      await nrStream.step('Resolving prompts',
+        pk.length ? 'Bound <b>'+pk.length+'</b> prompt objects with default answers.' : 'No prompts selected — the report will run unprompted.',
+        700, RES.chips('Prompts', pk.map(k=> k+(pv[k].length?' → '+pv[k].join(', '):''))));
+      f.set('prompts','done', pk.length+' prompts', {Count:String(pk.length), Objects:pk.join(', ')||'none'});
+      f.fill(4);
+
+      /* 6 · FILTERS */
+      f.set('filters','run');
+      if(nrMode === 'brd'){
+        const picks = {};
+        TYPES[detected].filters.forEach(p=>{ picks[p] = (AI_PICK[p] || [subsFor(p)[0]]).slice(); });
+        nrFilters.setValue(picks);
+      }
+      const fv = nrFilters.value(), fk = Object.keys(fv);
+      await nrStream.step('Resolving filters',
+        fk.length ? 'Bound <b>'+fk.length+'</b> filter qualifications.' : 'No filters selected — the report returns the full result set.',
+        700, RES.chips('Filters', fk.map(k=> k+(fv[k].length?' → '+fv[k].join(', '):''))));
+      f.set('filters','done', fk.length+' filters', {Count:String(fk.length), Objects:fk.join(', ')||'none'});
+      f.fill(5);
+
+      if(!$('#nrName').value.trim()){
+        $('#nrName').value = TYPES[detected].label + ' Report — ' + new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      }
+
+      /* 7 · APPROVAL */
+      if(nrMode === 'brd'){
+        setFormLocked(false);
+        f.fill(6,'hold');
+        f.set('approve','hold','waiting on\nanalyst',{Blocking:'yes', 'Required by':'governance policy CVS-BI-114'});
+        nrStream.setLive(true,'waiting');
+        const cfg = currentConfig();
+        const card = nrStream.push('hold','Approval required',
+          'The pipeline is paused. Nothing has been written to MicroStrategy yet.',
+          '<div class="approve">'+
+            '<div class="approve-h"><i data-lucide="shield-alert"></i><span class="t">Review before build</span></div>'+
+            '<div class="approve-b">'+configCard(cfg)+'</div>'+
+            '<div class="approve-f">'+
+              '<button class="btn btn-sm btn-ok" data-ap="approve"><i data-lucide="check"></i>Approve</button>'+
+              '<button class="btn btn-sm" data-ap="edit"><i data-lucide="pencil-line"></i>Edit</button>'+
+              '<button class="btn btn-sm btn-danger" data-ap="reject"><i data-lucide="x"></i>Reject</button>'+
+            '</div>'+
+          '</div>');
+        icons();
+
+        const verdict = await new Promise(res=>{
+          approvalResolve = res;
+          $$('[data-ap]', card).forEach(b=> b.addEventListener('click', ()=>{
+            $$('[data-ap]', card).forEach(x=>{ x.disabled = true; });
+            res(b.dataset.ap);
+          }));
+        });
+        approvalResolve = null;
+        if(!alive()) return;
+
+        if(verdict === 'reject'){
+          f.set('approve','err','rejected');
+          nrStream.push('err','Build rejected',
+            'The analyst rejected the proposed configuration. No object was created. The parsed configuration is still in the form if you want to adjust and rerun.');
+          nrStream.setLive(false,'stopped');
+          finish(); return;
+        }
+        if(verdict === 'edit'){
+          f.set('approve','hold','editing');
+          nrStream.push('hold','Handed back for edits',
+            'Pipeline held at <b>Human Approval</b>. Update the configuration in the form, then resume.');
+          $('#nrResume').classList.add('on');
+          $('#nrName').focus({preventScroll:true});
+          $('#nrResume').scrollIntoView({block:'center', behavior: reduced()?'auto':'smooth'});
+          nrStream.setLive(true,'paused');
+          nrRunning = false; $('#nrBuild').innerHTML = '<i data-lucide="play"></i><span>Parse &amp; Build Report</span>';
+          $('#nrBuild').disabled = true; icons();
+          return; /* resumed by the resume bar */
+        }
+        f.set('approve','done','approved');
+        nrStream.push('done','Approved', 'Configuration approved by the analyst. Resuming the pipeline.');
+      } else {
+        nrStream.push('info','Approval skipped','Mapping Document mode bypasses the approval gate — you authored the configuration.');
+      }
+      f.fill(6);
+    } else {
+      /* resuming after edits */
+      const f2 = flowNew;
+      f2.set('approve','done','approved\nwith edits');
+      nrStream.push('done','Approved with edits','Configuration updated by the analyst. Resuming the pipeline.',
+        configCard(currentConfig()));
+      f2.fill(6);
+      nrRunning = true; syncBuildBtn();
+      $('#nrBuild').innerHTML = '<span class="spin"></span><span>Building…</span>';
+      nrStream.setLive(true,'running');
+    }
+
+    if(!alive()) return;
+    const cfg = currentConfig();
+
+    /* 8 · CREATE */
+    f.set('create','run');
+    const id = guid();
+    await nrStream.step('Creating report object',
+      'POST <span class="mono">/api/model/reports</span> — definition created with '+
+      Object.keys(cfg.prompts).length+' prompts, '+Object.keys(cfg.filters).length+' filters, template <b>'+esc(cfg.template)+'</b>.',
+      900, RES.kv('Object',[['ID',id],['Name',cfg.name||'(unnamed)'],['Template',cfg.template],['Type',cfg.label]]));
+    f.set('create','done', id.slice(0,8)+'…', {'Object ID':id, Name:cfg.name, Template:cfg.template});
+    f.fill(7);
+
+    /* 9 · PUBLISH */
+    f.set('publish','run');
+    const path = (cfg.folder || '/Public Objects/Reports') + '/' + (cfg.name || 'Untitled Report');
+    await nrStream.step('Publishing to folder',
+      'Object moved to <span class="mono">'+esc(cfg.folder)+'</span>, permissions inherited from the parent folder, catalog entry registered.',
+      760);
+    f.set('publish','done','published', {Path:path, Permissions:'inherited', Catalog:'registered'});
+
+    const done = nrStream.push('done','Report published',
+      'Build finished in 5.4s. The report is live and ready to run.',
+      RES.kv('Result',[['Path',path],['Object ID',id],['Prompts',String(Object.keys(cfg.prompts).length)],['Filters',String(Object.keys(cfg.filters).length)]])+
+      '<div style="display:flex;gap:6px;margin-top:9px"><button class="btn btn-sm" data-copy><i data-lucide="copy"></i>Copy path</button>'+
+      '<button class="btn btn-sm" data-json><i data-lucide="braces"></i>Download definition</button></div>');
+    $('[data-copy]', done).addEventListener('click', ()=> copy(path,'Report path'));
+    $('[data-json]', done).addEventListener('click', ()=> download(
+      slug(cfg.name||'report')+'.json',
+      JSON.stringify({id, name:cfg.name, type:cfg.type, template:cfg.template, folder:cfg.folder,
+                      prompts:cfg.prompts, filters:cfg.filters}, null, 2),
+      'application/json'));
+    icons();
+    nrStream.setLive(false,'complete');
+    toast('Report published to '+cfg.folder, 'ok');
+  } catch(err){
+    nrStream.push('err','Build failed', esc(err && err.message ? err.message : String(err)));
+    nrStream.setLive(false,'failed');
+  } finally {
+    if(token === nrBuildToken) finish();
+  }
+
+  function finish(){
+    nrRunning = false;
+    $('#nrBuild').innerHTML = '<i data-lucide="play"></i><span>'+(nrMode==='brd'?'Parse &amp; Build Report':'Build Report')+'</span>';
+    icons(); syncBuildBtn();
+    $('#nrResume').classList.remove('on');
+  }
+}
+
+$('#nrBuild').addEventListener('click', ()=>{ if(!$('#nrBuild').disabled) runBuild(false); });
+$('#nrResumeBtn').addEventListener('click', ()=>{ $('#nrResume').classList.remove('on'); runBuild(true); });
+$('#nrCancelEdit').addEventListener('click', ()=>{
+  nrBuildToken++;
+  $('#nrResume').classList.remove('on');
+  flowNew.set('approve','err','cancelled');
+  nrStream.push('err','Build cancelled','Cancelled while paused for edits. Nothing was written to MicroStrategy.');
+  nrStream.setLive(false,'stopped');
+  nrRunning = false;
+  $('#nrBuild').innerHTML = '<i data-lucide="play"></i><span>'+(nrMode==='brd'?'Parse &amp; Build Report':'Build Report')+'</span>';
+  icons(); syncBuildBtn();
+});
+$('#nrReset').addEventListener('click', ()=>{
+  nrBuildToken++;
+  if(approvalResolve){ approvalResolve('reject'); approvalResolve = null; }
+  nrRunning = false;
+  flowNew.reset();
+  nrStream.reset();
+  $('#nrName').value = ''; $('#nrType').value = '';
+  delete $('#nrFolder').dataset.touched; $('#nrFolder').value = '';
+  $('#nrTemplate').value = 'Standard Grid';
+  nrPrompts.setNames([]); nrFilters.setNames([]);
+  if(nrDrop) nrDrop.clear();
+  $('#nrResume').classList.remove('on');
+  setFormLocked(nrMode==='brd');
+  $('#nrBuild').innerHTML = '<i data-lucide="play"></i><span>'+(nrMode==='brd'?'Parse &amp; Build Report':'Build Report')+'</span>';
+  icons(); updateNrSummary();
+  toast('New Report reset');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10 · PAGE — GENERATE MAPPING
+   ═══════════════════════════════════════════════════════════════════════ */
+const gmStream = createStream($('#streamMap'),
+  'Upload an Excel BRD and generate a mapping document. Each model action appears here as it happens.');
+let flowMap = createFlow($('#flowMap'), $('#flowScrollMap'), $('#inspectMap'), $('#progMap'), STAGES.gmap);
+FLOWS[1] = flowMap;
+
+let gmRunning = false, gmRows = [];
+const gmDrop = createDrop($('#gmDrop'), {
+  accept:'.xlsx,.xls,.csv', hint:'XLSX · XLS · CSV — the requirements workbook', icon:'file-spreadsheet',
+  onChange: ()=>{ $('#gmRun').disabled = !gmDrop.get() || gmRunning; }
+});
+$('#gmRun').disabled = true;
+
+const SRC_COLS = [
+  ['RX_FILL_DT','Fill Date','Attribute','DATE'],
+  ['STORE_NBR','Store Number','Attribute','INTEGER'],
+  ['STORE_NM','Store Name','Attribute','VARCHAR(60)'],
+  ['REGION_CD','Region','Attribute','VARCHAR(8)'],
+  ['DISTRICT_CD','District','Attribute','VARCHAR(8)'],
+  ['NDC_11','NDC','Attribute','CHAR(11)'],
+  ['GPI_CD','GPI Class','Attribute','VARCHAR(14)'],
+  ['PAYER_TYP_CD','Payer Type','Attribute','VARCHAR(20)'],
+  ['CHANNEL_CD','Channel','Attribute','VARCHAR(20)'],
+  ['RX_CNT','Script Count','Metric','DECIMAL(18,0)'],
+  ['QTY_DISPENSED','Quantity Dispensed','Metric','DECIMAL(18,3)'],
+  ['DAYS_SUPPLY','Days Supply','Metric','DECIMAL(9,2)'],
+  ['GROSS_REV_AMT','Gross Revenue','Metric','DECIMAL(18,2)'],
+  ['COGS_AMT','Cost of Goods','Metric','DECIMAL(18,2)'],
+  ['GROSS_MARGIN_AMT','Gross Margin','Metric','DECIMAL(18,2)'],
+  ['GENERIC_IND','Generic Indicator','Attribute','CHAR(1)']
+];
+
+function renderGmRows(type){
+  const base = TYPES[type] ? TYPES[type].folder : '/Public Objects/Reports';
+  gmRows = SRC_COLS.map((c,i)=>({
+    src:c[0], obj:c[1], kind:c[2], dtype:c[3],
+    folder: c[2]==='Metric' ? '/Public Objects/Metrics' : '/Schema Objects/Attributes',
+    status: i%7===3 ? 'new' : 'resolved'
+  }));
+  $('#gmRows').innerHTML = gmRows.map(r=>
+    '<tr>'+
+      '<td class="m">'+esc(r.src)+'</td>'+
+      '<td style="font-weight:550;color:var(--ink)">'+esc(r.obj)+'</td>'+
+      '<td><span class="tag'+(r.kind==='Metric'?' red':'')+'">'+esc(r.kind)+'</span></td>'+
+      '<td class="m">'+esc(r.dtype)+'</td>'+
+      '<td class="m">'+esc(r.folder)+'</td>'+
+      '<td><span class="tag '+(r.status==='new'?'hold':'ok')+'">'+(r.status==='new'?'create':'resolved')+'</span></td>'+
+    '</tr>').join('');
+  $('#gmCount').textContent = gmRows.length+' objects';
+  $('#gmResultCard').style.display = '';
+  void base;
+}
+
+$('#gmRun').addEventListener('click', async ()=>{
+  const file = gmDrop.get(); if(!file) return;
+  gmRunning = true; $('#gmRun').disabled = true;
+  $('#gmRun').innerHTML = '<span class="spin"></span>Generating…';
+  flowMap.reset(); gmStream.reset(); gmStream.setLive(true,'running');
+  $('#gmResultCard').style.display = 'none';
+  const type = $('#gmType').value;
+  const f = flowMap;
+
+  try{
+    f.set('source','run');
+    await gmStream.step('Reading workbook','Opened <b>'+esc(file.name)+'</b> ('+fmtSize(file.size)+').',480);
+    f.set('source','done', file.name.slice(0,16)+(file.name.length>16?'…':''), {File:file.name, Size:fmtSize(file.size)});
+    f.fill(0);
+
+    f.set('parse','run');
+    const sheet = $('#gmSheet').value;
+    await gmStream.step('Parsing sheets',
+      'Read '+(sheet==='Auto-detect' ? '3 sheets (auto-detected <b>Field Mapping</b> as the primary)' : 'sheet <b>'+esc(sheet)+'</b>')+
+      '. 18 header cells normalized.', 720, RES.metrics([['3','sheets'],['212','rows'],['18','headers']]));
+    f.set('parse','done','3 sheets\n212 rows', {Primary: sheet==='Auto-detect' ? 'Field Mapping' : sheet});
+    f.fill(1);
+
+    f.set('extract','run');
+    await gmStream.step('Extracting source columns',
+      'Identified <b>'+SRC_COLS.length+'</b> distinct source columns referenced by the requirements.',
+      780, RES.metrics([[String(SRC_COLS.filter(c=>c[2]==='Attribute').length),'attributes'],
+                        [String(SRC_COLS.filter(c=>c[2]==='Metric').length),'metrics']]));
+    f.set('extract','done', SRC_COLS.length+' columns', {Columns:String(SRC_COLS.length)});
+    f.fill(2);
+
+    f.set('detect','run');
+    await gmStream.step('Classifying report family',
+      'Naming convention set to the <b>'+esc(TYPES[type].label)+'</b> family.', 560);
+    f.set('detect','done', TYPES[type].label, {Family:TYPES[type].label, Folder:TYPES[type].folder});
+    f.fill(3);
+
+    f.set('prompts','run');
+    await gmStream.step('Inferring prompts',
+      'This family needs <b>'+TYPES[type].prompts.length+'</b> prompt objects.',
+      640, RES.chips('Prompts', TYPES[type].prompts));
+    f.set('prompts','done', TYPES[type].prompts.length+' prompts', {Objects:TYPES[type].prompts.join(', ')});
+    f.fill(4);
+
+    f.set('filters','run');
+    await gmStream.step('Inferring filters',
+      'This family needs <b>'+TYPES[type].filters.length+'</b> filter objects.',
+      620, RES.chips('Filters', TYPES[type].filters));
+    f.set('filters','done', TYPES[type].filters.length+' filters', {Objects:TYPES[type].filters.join(', ')});
+    f.fill(5);
+
+    f.set('compose','run');
+    await gmStream.step('Composing mapping document',
+      'Wrote '+SRC_COLS.length+' mapping rows. <b>'+SRC_COLS.length+'</b> objects total, 3 of which do not yet exist and will be created on first build.',
+      820);
+    f.set('compose','done', SRC_COLS.length+' rows', {Rows:String(SRC_COLS.length), 'To create':'3'});
+    f.fill(6);
+
+    f.set('ready','run');
+    renderGmRows(type);
+    await gmStream.step('Mapping ready',
+      'The mapping document is complete. Download it, or hand it straight to the report builder.', 500);
+    f.set('ready','done','ready', {Format:'CSV', Rows:String(SRC_COLS.length)});
+    gmStream.setLive(false,'complete');
+    toast('Mapping generated — '+SRC_COLS.length+' objects','ok');
+  } finally {
+    gmRunning = false;
+    $('#gmRun').innerHTML = '<i data-lucide="wand-sparkles"></i>Generate Mapping';
+    $('#gmRun').disabled = !gmDrop.get();
+    icons();
+  }
+});
+
+$('#gmReset').addEventListener('click', ()=>{
+  flowMap.reset(); gmStream.reset(); gmDrop.clear();
+  $('#gmResultCard').style.display = 'none';
+  $('#gmRun').disabled = true;
+  toast('Mapping generator reset');
+});
+
+$('#gmDownload').addEventListener('click', ()=>{
+  if(!gmRows.length){ toast('Generate a mapping first','err'); return; }
+  const head = 'Source Column,MSTR Object,Object Type,Data Type,Folder,Status';
+  const body = gmRows.map(r=>[r.src,r.obj,r.kind,r.dtype,r.folder,r.status].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  download('mstr_mapping_'+slug($('#gmType').value)+'.csv', head+'\n'+body, 'text/csv;charset=utf-8');
+});
+
+$('#gmUse').addEventListener('click', ()=>{
+  if(!gmRows.length){ toast('Generate a mapping first','err'); return; }
+  const type = $('#gmType').value;
+  go('new');
+  setMode('mapping');
+  nrSource = 'upload';
+  $$('#srcGrid .src').forEach(x=>x.setAttribute('aria-pressed', x.dataset.src==='upload' ? 'true':'false'));
+  renderSource();
+  nrDrop.setVirtual('mstr_mapping_'+slug(type)+'.csv', gmRows.length*148, 'Generate Mapping');
+  $('#nrType').value = type; applyType(type);
+  $('#nrName').value = TYPES[type].label+' Report — from mapping';
+  updateNrSummary(); syncBuildBtn();
+  nrStream.push('info','Mapping handed over',
+    'Imported <b>'+gmRows.length+' objects</b> from the generated mapping. Pick prompts and filters, then build.');
+  toast('Mapping loaded into New Report','ok');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11 · PAGE — FREE SQL
+   ═══════════════════════════════════════════════════════════════════════ */
+const sqStream = createStream($('#streamSql'),
+  'Paste a SELECT statement and build. Validation, column resolution, and publishing all report here.');
+let flowSql = createFlow($('#flowSql'), $('#flowScrollSql'), $('#inspectSql'), $('#progSql'), STAGES.sql);
+FLOWS[2] = flowSql;
+
+const SAMPLE_SQL =
+`SELECT
+    f.RX_FILL_DT           AS fill_date,
+    s.STORE_NBR            AS store_number,
+    s.STORE_NM             AS store_name,
+    s.REGION_CD            AS region,
+    p.PAYER_TYP_CD         AS payer_type,
+    COUNT(DISTINCT f.RX_NBR)          AS script_count,
+    SUM(f.QTY_DISPENSED)              AS qty_dispensed,
+    SUM(f.GROSS_REV_AMT)              AS gross_revenue,
+    SUM(f.GROSS_REV_AMT - f.COGS_AMT) AS gross_margin
+FROM   EDW.RX_FILL_FACT f
+JOIN   EDW.STORE_DIM    s ON s.STORE_KEY = f.STORE_KEY
+JOIN   EDW.PAYER_DIM    p ON p.PAYER_KEY = f.PAYER_KEY
+WHERE  f.RX_FILL_DT BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE - 1
+  AND  s.ACTIVE_IND = 'Y'
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY script_count DESC;`;
+
+const sqTa = $('#sqEditor'), sqNums = $('#sqNums');
+function syncSql(){
+  const v = sqTa.value;
+  const lines = v.length ? v.split('\n').length : 1;
+  let s = '';
+  for(let i=1;i<=lines;i++) s += i+'\n';
+  sqNums.textContent = s;
+  $('#sqStat').textContent = lines+' lines · '+v.length+' chars';
+  $('#sqBuild').disabled = !(v.trim().length > 12 && $('#sqName').value.trim());
+}
+sqTa.addEventListener('input', ()=>{ syncSql(); $('#sqCheck').textContent = 'not validated'; $('#sqCheck').className=''; });
+sqTa.addEventListener('scroll', ()=>{ sqNums.scrollTop = sqTa.scrollTop; });
+$('#sqName').addEventListener('input', syncSql);
+sqTa.addEventListener('keydown', e=>{
+  if(e.key === 'Tab'){
+    e.preventDefault();
+    const s = sqTa.selectionStart, en = sqTa.selectionEnd;
+    sqTa.value = sqTa.value.slice(0,s) + '  ' + sqTa.value.slice(en);
+    sqTa.selectionStart = sqTa.selectionEnd = s + 2;
+    syncSql();
+  }
+});
+syncSql();
+
+$('#sqSample').addEventListener('click', ()=>{
+  sqTa.value = SAMPLE_SQL; syncSql();
+  $('#sqName').value = $('#sqName').value || 'Rx Script Volume by Store — 30 Day';
+  syncSql(); toast('Sample query loaded');
+});
+$('#sqFormat').addEventListener('click', ()=>{
+  if(!sqTa.value.trim()){ toast('Nothing to format','err'); return; }
+  let v = sqTa.value.replace(/\s+$/gm,'').replace(/\n{3,}/g,'\n\n');
+  v = v.replace(/\b(select|from|where|group by|order by|having|join|left join|inner join|on|and|or|as|between|distinct|count|sum|current_date|desc|asc)\b/gi,
+                m => m.toUpperCase());
+  v = v.replace(/\n(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING)\b/g, '\n$1');
+  sqTa.value = v; syncSql(); toast('Formatted — keywords uppercased','ok');
+});
+function validateSql(){
+  const v = sqTa.value.trim();
+  const el = $('#sqCheck');
+  if(!v){ el.textContent = 'empty statement'; el.className = 'bad'; return false; }
+  if(!/^select\b/i.test(v)){ el.textContent = 'must begin with SELECT'; el.className='bad'; return false; }
+  if(/\b(insert|update|delete|drop|truncate|alter|create|merge|grant)\b/i.test(v)){
+    el.textContent = 'DDL/DML not permitted'; el.className='bad'; return false;
+  }
+  if((v.match(/\(/g)||[]).length !== (v.match(/\)/g)||[]).length){
+    el.textContent = 'unbalanced parentheses'; el.className='bad'; return false;
+  }
+  if(v.replace(/;$/,'').indexOf(';') > -1){ el.textContent='single statement only'; el.className='bad'; return false; }
+  el.textContent = 'valid · single SELECT'; el.className = 'ok';
+  return true;
+}
+$('#sqValidate').addEventListener('click', ()=>{
+  const ok = validateSql();
+  toast(ok ? 'Statement is valid' : 'Validation failed — see the editor footer', ok?'ok':'err');
+});
+
+function sqlColumns(){
+  const v = sqTa.value;
+  const m = v.match(/select([\s\S]*?)\bfrom\b/i);
+  if(!m) return [];
+  return m[1].split(/,(?![^()]*\))/).map(p=>{
+    const t = p.trim().replace(/\s+/g,' ');
+    const alias = /\bas\s+([a-z0-9_"]+)\s*$/i.exec(t);
+    const name = alias ? alias[1].replace(/"/g,'') : (t.split(/[\s.]+/).pop()||t);
+    const metric = /\b(sum|count|avg|min|max)\s*\(/i.test(t);
+    return { name, kind: metric ? 'Metric' : 'Attribute' };
+  }).filter(c=>c.name);
+}
+
+$('#sqBuild').addEventListener('click', async ()=>{
+  if($('#sqBuild').disabled) return;
+  const name = $('#sqName').value.trim();
+  const f = flowSql;
+  $('#sqBuild').disabled = true; $('#sqBuild').innerHTML = '<span class="spin"></span>Building…';
+  f.reset(); sqStream.reset(); sqStream.setLive(true,'running');
+
+  try{
+    f.set('source','run');
+    await sqStream.step('Capturing statement',
+      'Read '+sqTa.value.split('\n').length+' lines against <b>'+esc($('#sqDb').value)+'</b>.', 460);
+    f.set('source','done', sqTa.value.split('\n').length+' lines', {Instance:$('#sqDb').value, Chars:String(sqTa.value.length)});
+    f.fill(0);
+
+    f.set('validate','run');
+    await wait(560);
+    const ok = validateSql();
+    if(!ok){
+      f.set('validate','err', $('#sqCheck').textContent);
+      f.fill(0,'err');
+      sqStream.push('err','Validation failed',
+        'The statement was rejected: <b>'+esc($('#sqCheck').textContent)+'</b>. Nothing was sent to MicroStrategy.');
+      sqStream.setLive(false,'failed');
+      toast('SQL validation failed','err');
+      return;
+    }
+    sqStream.push('done','Statement validated',
+      'Single SELECT, balanced parentheses, no DDL or DML. Safe to prepare.');
+    f.set('validate','done','valid SELECT', {Checks:'4 passed', Mode:'read-only'});
+    f.fill(1);
+
+    f.set('columns','run');
+    const cols = sqlColumns();
+    const attrs = cols.filter(c=>c.kind==='Attribute'), mets = cols.filter(c=>c.kind==='Metric');
+    await sqStream.step('Resolving result set',
+      'Zero-row prepare returned <b>'+cols.length+'</b> columns. Classified '+attrs.length+' as attributes and '+mets.length+' as metrics.',
+      840, RES.chips('Attributes', attrs.map(c=>c.name)) + RES.chips('Metrics', mets.map(c=>c.name)));
+    f.set('columns','done', attrs.length+' attrs\n'+mets.length+' metrics',
+          {Columns:String(cols.length), Attributes:attrs.map(c=>c.name).join(', ')||'none', Metrics:mets.map(c=>c.name).join(', ')||'none'});
+    f.fill(2);
+
+    f.set('bind','run');
+    await sqStream.step('Binding database instance',
+      'Bound to <b>'+esc($('#sqDb').value)+'</b>. Connection mapping resolved through the project default DSN.', 620);
+    f.set('bind','done', $('#sqDb').value, {Instance:$('#sqDb').value, DSN: localStorage.getItem('mstr.dsn') || 'project default'});
+    f.fill(3);
+
+    f.set('create','run');
+    const id = guid();
+    await sqStream.step('Creating Freeform SQL report',
+      'POST <span class="mono">/api/model/reports</span> with <span class="mono">sourceType: freeform</span>.',
+      880, RES.kv('Object',[['ID',id],['Name',name],['Type','Freeform SQL']]));
+    f.set('create','done', id.slice(0,8)+'…', {'Object ID':id, Name:name, Type:'Freeform SQL'});
+    f.fill(4);
+
+    f.set('publish','run');
+    const folder = $('#sqFolder').value.trim() || '/Public Objects/Reports/Ad-hoc';
+    const path = folder+'/'+name;
+    await sqStream.step('Publishing', 'Object placed in <span class="mono">'+esc(folder)+'</span>.', 640);
+    f.set('publish','done','published', {Path:path});
+
+    const card = sqStream.push('done','SQL report published','Build finished in 3.9s.',
+      RES.kv('Result',[['Path',path],['Object ID',id],['Columns',String(cols.length)]])+
+      '<div style="display:flex;gap:6px;margin-top:9px"><button class="btn btn-sm" data-copy><i data-lucide="copy"></i>Copy path</button>'+
+      '<button class="btn btn-sm" data-sql><i data-lucide="download"></i>Download .sql</button></div>');
+    $('[data-copy]', card).addEventListener('click', ()=> copy(path,'Report path'));
+    $('[data-sql]', card).addEventListener('click', ()=> download(slug(name)+'.sql', sqTa.value, 'text/plain;charset=utf-8'));
+    icons();
+    sqStream.setLive(false,'complete');
+    toast('Freeform SQL report published','ok');
+  } finally {
+    $('#sqBuild').innerHTML = '<i data-lucide="play"></i>Build SQL Report';
+    icons(); syncSql();
+  }
+});
+
+$('#sqReset').addEventListener('click', ()=>{
+  sqTa.value = ''; $('#sqName').value = '';
+  $('#sqFolder').value = '/Public Objects/Reports/Ad-hoc';
+  $('#sqCheck').textContent = 'not validated'; $('#sqCheck').className = '';
+  syncSql(); flowSql.reset(); sqStream.reset();
+  toast('SQL editor reset');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12 · PAGE — CONNECTION
+   ═══════════════════════════════════════════════════════════════════════ */
+const CFIELDS = ['cLibrary','cServer','cPort','cProject','cAuth','cUser','cPass','cToken','cDb','cDsn','cFolder','cTemplate'];
+const LS_KEY = 'mstr.connection.v1';
+let connTested = null; /* null | true | false */
+
+function renderAuthFields(){
+  const mode = $('#cAuth').value;
+  const host = $('#authFields');
+  if(mode === 'API Token'){
+    host.innerHTML =
+      '<div class="field"><label class="lbl" for="cToken">API Token<span class="req">*</span></label>'+
+      '<input class="inp mono" id="cToken" type="password" style="font-size:12px" placeholder="mstr_pat_…" autocomplete="off" />'+
+      '<div class="hint">Personal access token issued from Workstation. Scope: <span class="mono">report:write</span>.</div></div>';
+  } else if(mode === 'SAML' || mode === 'OAuth'){
+    host.innerHTML =
+      '<div class="res" style="margin:0"><div class="res-h"><i data-lucide="shield-check" style="width:12px;height:12px;stroke-width:2"></i>'+esc(mode)+' single sign-on</div>'+
+      '<div class="res-b" style="font-size:12px;color:var(--ink-4);line-height:1.5">'+
+      'Credentials are handled by the identity provider. Testing the connection opens an SSO handshake against the Library URL — no username or password is stored here.'+
+      '</div></div>';
+  } else {
+    host.innerHTML =
+      '<div class="grid-2">'+
+        '<div class="field"><label class="lbl" for="cUser">Username<span class="req">*</span></label>'+
+        '<input class="inp" id="cUser" placeholder="'+(mode==='LDAP'?'CORP\\\\analyst':'mstr_svc_reports')+'" autocomplete="off" /></div>'+
+        '<div class="field"><label class="lbl" for="cPass">Password<span class="req">*</span></label>'+
+        '<input class="inp" id="cPass" type="password" placeholder="••••••••••" autocomplete="off" /></div>'+
+      '</div>';
+  }
+  icons(); markDirty();
+}
+$('#cAuth').addEventListener('change', ()=>{ renderAuthFields(); renderPreview(); });
+
+function readConn(){
+  const o = {};
+  CFIELDS.forEach(id=>{ const el = document.getElementById(id); if(el) o[id] = el.value; });
+  return o;
+}
+function writeConn(o){
+  CFIELDS.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el && o[id] !== undefined) el.value = o[id];
+  });
+}
+
+function renderPreview(){
+  const c = readConn();
+  const base = (c.cLibrary||'').replace(/\/+$/,'') || 'https://…';
+  $('#connPreview').innerHTML =
+    '<div class="kvrow"><span class="k">REST base</span><span class="v">'+esc(base)+'/api</span></div>'+
+    '<div class="kvrow"><span class="k">I-Server</span><span class="v">'+esc(c.cServer||'—')+':'+esc(c.cPort||'34952')+'</span></div>'+
+    '<div class="kvrow"><span class="k">Project</span><span class="v">'+esc(c.cProject||'—')+'</span></div>'+
+    '<div class="kvrow"><span class="k">Auth</span><span class="v">'+esc(c.cAuth||'Standard')+'</span></div>'+
+    '<div class="kvrow"><span class="k">Folder</span><span class="v">'+esc(c.cFolder||'—')+'</span></div>'+
+    '<div class="kvrow"><span class="k">DSN</span><span class="v">'+esc(c.cDsn||'—')+'</span></div>'+
+    '<div style="margin-top:10px"><button class="btn btn-sm btn-block" id="cCopy"><i data-lucide="copy"></i>Copy endpoint</button></div>';
+  icons();
+  $('#cCopy').addEventListener('click', ()=> copy(base+'/api','Endpoint'));
+}
+
+function renderConnStatus(state, detail){
+  const host = $('#connStatus');
+  if(state === 'idle'){
+    host.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px">'+
+      '<span class="conn-led" style="margin-top:5px"></span>'+
+      '<div><div style="font-size:13px;font-weight:600;color:var(--ink)">Not tested</div>'+
+      '<div style="font-size:12px;color:var(--ink-4);margin-top:3px;line-height:1.5">Fill in the endpoint and run a test. Nothing is sent anywhere until you do.</div></div></div>';
+  } else if(state === 'testing'){
+    host.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px">'+
+      '<span class="spin" style="margin-top:4px;color:var(--red)"></span>'+
+      '<div><div style="font-size:13px;font-weight:600;color:var(--ink)">Testing…</div>'+
+      '<div style="font-size:12px;color:var(--ink-4);margin-top:3px" id="testStep">Resolving host</div></div></div>';
+  } else if(state === 'ok'){
+    host.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px">'+
+      '<span class="conn-led on" style="margin-top:5px"></span>'+
+      '<div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">Connected</div>'+
+      '<div style="font-size:12px;color:var(--ink-4);margin-top:3px">Authenticated and project loaded.</div></div></div>'+
+      RES.kv('Handshake', detail);
+  } else {
+    host.innerHTML = '<div style="display:flex;align-items:flex-start;gap:10px">'+
+      '<span class="conn-led bad" style="margin-top:5px"></span>'+
+      '<div style="min-width:0"><div style="font-size:13px;font-weight:600;color:var(--ink)">Connection failed</div>'+
+      '<div style="font-size:12px;color:var(--ink-4);margin-top:3px;line-height:1.5">'+esc(detail)+'</div></div></div>';
+  }
+  icons();
+}
+
+function markDirty(){
+  $('#connState').textContent = 'unsaved';
+  $('#connState').className = 'tag mono hold';
+}
+document.addEventListener('input', e=>{
+  if(e.target.closest('#page-conn')){ markDirty(); renderPreview(); }
+});
+
+$('#cTest').addEventListener('click', async ()=>{
+  const c = readConn();
+  const missing = [];
+  if(!c.cLibrary.trim()) missing.push('Library URL');
+  if(!c.cServer.trim())  missing.push('Intelligence Server');
+  if(!c.cProject.trim()) missing.push('Project Name');
+  if(c.cAuth === 'API Token' && !(c.cToken||'').trim()) missing.push('API Token');
+  if((c.cAuth === 'Standard' || c.cAuth === 'LDAP') && !(c.cUser||'').trim()) missing.push('Username');
+  if(missing.length){
+    renderConnStatus('bad','Missing required field'+(missing.length>1?'s':'')+': '+missing.join(', ')+'.');
+    toast('Fill in: '+missing.join(', '), 'err');
+    $('#railLed').className = 'conn-led bad';
+    connTested = false;
+    return;
+  }
+
+  const btn = $('#cTest');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span><span>Testing…</span>';
+  renderConnStatus('testing');
+  const steps = ['Resolving host', 'Opening TLS session', 'Authenticating ('+c.cAuth+')', 'Loading project', 'Reading folder permissions'];
+  for(let i=0;i<steps.length;i++){
+    await wait(380);
+    const s = $('#testStep'); if(s) s.textContent = steps[i];
+  }
+  await wait(280);
+
+  const bad = !/^https?:\/\//i.test(c.cLibrary.trim());
+  if(bad){
+    connTested = false;
+    renderConnStatus('bad','Library URL must start with http:// or https://. Received: '+c.cLibrary.trim().slice(0,48));
+    $('#railLed').className = 'conn-led bad';
+    toast('Connection failed — invalid Library URL','err');
+  } else {
+    connTested = true;
+    renderConnStatus('ok', [
+      ['Latency', (48 + Math.floor(Math.random()*90))+' ms'],
+      ['I-Server', c.cServer+':'+(c.cPort||'34952')],
+      ['Version', '2024 Update 9 · 11.4.0906'],
+      ['Project', c.cProject],
+      ['Session', guid().slice(0,18)]
+    ]);
+    $('#railLed').className = 'conn-led on';
+    $('#railProj').textContent = c.cProject;
+    $('#railHost').textContent = c.cServer+':'+(c.cPort||'34952');
+    toast('Connected to '+c.cProject,'ok');
+  }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="activity"></i><span>Test Connection</span>'; icons();
+});
+
+$('#cSave').addEventListener('click', ()=>{
+  const c = readConn();
+  if(!c.cLibrary.trim() || !c.cProject.trim()){
+    toast('Library URL and Project Name are required','err'); return;
+  }
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(c));
+    localStorage.setItem('mstr.dsn', c.cDsn || '');
+    $('#connState').textContent = 'saved '+now();
+    $('#connState').className = 'tag mono ok';
+    $('#railProj').textContent = c.cProject;
+    $('#railHost').textContent = (c.cServer||'—')+':'+(c.cPort||'34952');
+    if(connTested !== false) $('#railLed').className = 'conn-led' + (connTested ? ' on' : '');
+    toast('Configuration saved to this browser','ok');
+  }catch(e){ toast('Could not write to localStorage','err'); }
+});
+
+$('#cResetBtn').addEventListener('click', ()=>{
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  CFIELDS.forEach(id=>{ const el = document.getElementById(id); if(el && el.tagName!=='SELECT') el.value=''; });
+  $('#cPort').value = '34952';
+  $('#cAuth').value = 'Standard';
+  $('#cTemplate').value = 'Standard Grid';
+  $('#cFolder').value = '/Public Objects/Reports';
+  renderAuthFields(); renderPreview();
+  connTested = null;
+  renderConnStatus('idle');
+  $('#connState').textContent = 'unsaved'; $('#connState').className = 'tag mono';
+  $('#railLed').className = 'conn-led';
+  $('#railProj').textContent = 'Not configured';
+  $('#railHost').textContent = 'Set up a connection';
+  toast('Connection settings cleared');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   13 · BOOT
+   ═══════════════════════════════════════════════════════════════════════ */
+(function boot(){
+  renderAuthFields();
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const c = JSON.parse(raw);
+      if(c.cAuth){ $('#cAuth').value = c.cAuth; renderAuthFields(); }
+      writeConn(c);
+      $('#connState').textContent = 'loaded from cache';
+      $('#connState').className = 'tag mono ok';
+      $('#railProj').textContent = c.cProject || 'Not configured';
+      $('#railHost').textContent = (c.cServer||'—')+':'+(c.cPort||'34952');
+    }
+  }catch(e){}
+  renderPreview();
+  renderConnStatus('idle');
+
+  setMode('brd');
+  updateNrSummary();
+  icons();
+
+  /* keep edge geometry correct once webfonts land */
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(()=> FLOWS.forEach(f=> f && f.layout && f.layout()));
+  }
+  window.addEventListener('load', ()=> setTimeout(()=> FLOWS.forEach(f=> f && f.layout && f.layout()), 120));
+})();
+</script>
+</body>
+</html>
